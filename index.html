@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>KG Portal — Khair Group Business Management</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
@@ -883,31 +883,47 @@ CREATE POLICY "allow_all" ON quotes FOR ALL USING (true);
 CREATE POLICY "allow_all" ON invoices FOR ALL USING (true);`;
 
 // ── Connect ──────────────────────────────────────
+// Hardcoded credentials — change if project changes
+const HARDCODED_URL = 'https://nxicehgqxgqlijpbvezk.supabase.co';
+const HARDCODED_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im54aWNlaGdxeGdxbGlqcGJ2ZXprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1MDYzMDcsImV4cCI6MjA5MzA4MjMwN30.rrb0t2IGPHhIxYeUuDmQUGT3eZHbiT8zrPw1Jaymdes';
+
 function connectSupabase() {
-  const url = document.getElementById('sbUrl').value.trim();
-  const key = document.getElementById('sbKey').value.trim();
+  const url = document.getElementById('sbUrl').value.trim() || HARDCODED_URL;
+  const key = document.getElementById('sbKey').value.trim() || HARDCODED_KEY;
   if(!url || !key) { showToast('Enter both URL and key','error'); return; }
   localStorage.setItem('kg_sb_url', url);
   localStorage.setItem('kg_sb_key', key);
+  doConnect(url, key);
+}
+
+function doConnect(url, key) {
+  // Retry until supabase SDK is loaded
+  if(typeof window.supabase === 'undefined' || typeof window.supabase.createClient !== 'function') {
+    document.getElementById('connLabel').textContent = 'Loading SDK...';
+    setTimeout(() => doConnect(url, key), 300);
+    return;
+  }
   initApp(url, key);
 }
 
 async function initApp(url, key) {
   try {
+    document.getElementById('connLabel').textContent = 'Connecting...';
     supabase = window.supabase.createClient(url, key);
-    // Test connection
     const { error } = await supabase.from('customers').select('id').limit(1);
-    if(error && error.code !== 'PGRST116') throw error;
+    if(error && error.code !== 'PGRST116' && !error.message.includes('does not exist')) throw error;
     document.getElementById('setupScreen').style.display = 'none';
     document.getElementById('app').classList.add('show');
     document.getElementById('connDot').classList.remove('offline');
     document.getElementById('connLabel').textContent = 'Connected';
-    document.getElementById('settingsSbUrl').value = url;
-    document.getElementById('schemaSql').value = SQL_SCHEMA;
+    if(document.getElementById('settingsSbUrl')) document.getElementById('settingsSbUrl').value = url;
+    if(document.getElementById('schemaSql')) document.getElementById('schemaSql').value = SQL_SCHEMA;
     refreshAll();
   } catch(e) {
-    showToast('Connection failed: ' + (e.message || e), 'error');
+    showToast('Connection failed: ' + (e.message || JSON.stringify(e)), 'error');
     document.getElementById('connDot').classList.add('offline');
+    document.getElementById('connLabel').textContent = 'Failed';
+    console.error('Supabase error:', e);
   }
 }
 
@@ -1629,17 +1645,17 @@ function copySql() {
 
 // ── Init ─────────────────────────────────────────
 window.onload = () => {
-  // Check saved credentials
-  const url = localStorage.getItem('kg_sb_url');
-  const key = localStorage.getItem('kg_sb_key');
-  if(url && key) {
-    document.getElementById('sbUrl').value = url;
-    document.getElementById('sbKey').value = key;
-    initApp(url, key);
-  }
-  // Set dashboard date
+  // Pre-fill fields with hardcoded credentials
+  document.getElementById('sbUrl').value = HARDCODED_URL;
+  document.getElementById('sbKey').value = HARDCODED_KEY;
+
+  // Auto-connect using saved or hardcoded creds
+  const url = localStorage.getItem('kg_sb_url') || HARDCODED_URL;
+  const key = localStorage.getItem('kg_sb_key') || HARDCODED_KEY;
   document.getElementById('dashDate').textContent =
     new Date().toLocaleDateString('en-CA',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  // Small delay to let SDK load
+  setTimeout(() => doConnect(url, key), 500);
 };
 </script>
 </body>
