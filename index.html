@@ -575,7 +575,7 @@ select.form-input option{background:var(--bg3);}
 <body>
 
 <!-- ══ SETUP SCREEN ══ -->
-<div id="setupScreen">
+<div id="setupScreen" style="display:none;">
   <div class="setup-card">
     <h2>🔐 Connect to Supabase</h2>
     <p>Enter your Supabase project credentials to connect the KG Portal to your database. You can find these in your Supabase project under <strong>Settings → API</strong>.</p>
@@ -597,7 +597,7 @@ select.form-input option{background:var(--bg3);}
 </div>
 
 <!-- ══ MAIN APP ══ -->
-<div id="app">
+<div id="app" class="show">
 
   <!-- Top bar -->
   <div class="topbar">
@@ -1499,6 +1499,29 @@ select.form-input option{background:var(--bg3);}
   </div>
 </div>
 
+<script>
+/* KG Portal */
+var HARDCODED_URL = "https://nxicehgqxgqlijpbvezk.supabase.co";
+var HARDCODED_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im54aWNlaGdxeGdxbGlqcGJ2ZXprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1MDYzMDcsImV4cCI6MjA5MzA4MjMwN30.rrb0t2IGPHhIxYeUuDmQUGT3eZHbiT8zrPow1Jaymdes";
+
+function tryConnect(url, key) {
+  if (typeof window.supabase === "undefined" || !window.supabase.createClient) {
+    setTimeout(function(){ tryConnect(url, key); }, 300);
+    return;
+  }
+  if (typeof initApp === "function") {
+    initApp(url, key);
+  }
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+  var setup = document.getElementById("setupScreen");
+  var app   = document.getElementById("app");
+  if (setup) setup.style.display = "none";
+  if (app)   { app.style.display = "flex"; app.classList.add("show"); }
+  setTimeout(function(){ tryConnect(HARDCODED_URL, HARDCODED_KEY); }, 400);
+});
+</script>
 <script>
 /* ═══════════════════════════════════════
    STATE
@@ -3127,6 +3150,12 @@ async function refreshAll() {
 // Auto-load leads on connect
 const _origInitApp = typeof initApp !== 'undefined' ? initApp : null;
 async function initApp(url, key) {
+  // Make sure app is visible
+  var appEl = document.getElementById('app');
+  var setupEl = document.getElementById('setupScreen');
+  if(setupEl) setupEl.style.display = 'none';
+  if(appEl) { appEl.style.display = 'flex'; appEl.classList.add('show'); }
+
   if(_origInitApp) await _origInitApp(url, key);
   // Also add leads table to schema
   setTimeout(loadLeads, 1000);
