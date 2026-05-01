@@ -1,9 +1,9 @@
-function toggleInvoicePanel(el) {
-  var body = document.getElementById('invoicePanel');
-  var arr  = document.getElementById('invPanelArr');
-  if(!body) return;
-  var open = body.classList.contains('open');
-  body.classList.toggle('open', !open);
+function toggleInvoicePanel(btn) {
+  var panel = document.getElementById('invoicePanel');
+  var arr   = document.getElementById('invPanelArr');
+  if(!panel) return;
+  var open = panel.classList.contains('open');
+  panel.classList.toggle('open', !open);
   if(arr) arr.innerHTML = open ? '&#9660;' : '&#9650;';
   if(!open) {
     if(!document.getElementById('invoiceDueDate').value) {
@@ -840,450 +840,587 @@ select.form-input option{background:var(--bg3);}
 #driver-wrap .top-bar { display: none; }
 .tab-bar { position: sticky; bottom: 0; z-index: 40; }
 
-/* ══ SHIPPING QUOTE TOOL ══════════════════════════════════════════════════════ */
 
-/* Form fields */
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.field label {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--t3);
-}
-.field input, .field select, .field textarea {
-  background: var(--s2);
-  border: 1px solid var(--bdr);
-  border-radius: 2px;
-  padding: 9px 12px;
-  font-family: 'Barlow', sans-serif;
-  font-size: 13px;
-  color: var(--text);
-  outline: none;
-  width: 100%;
-  transition: border-color 0.15s;
-}
-.field input:focus, .field select:focus, .field textarea:focus {
-  border-color: var(--red);
-}
-.field select option { background: var(--s2); }
 
-/* Field rows */
-.field-row {
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  
+
+  /* PANELS */
+  .panel {
+    background: var(--s1);
+    border: 1px solid var(--bdr);
+    border-top: 3px solid var(--red);
+    border-radius: 2px;
+    margin-bottom: 24px;
+  }
+  .panel-
+  .panel-num {
+    background: var(--red);
+    color: white;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .panel-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+  .panel-
+
+  /* SETTINGS TOGGLE */
+  .settings-toggle {
+    width: 100%;
+    background: var(--s1);
+    border: 1px solid var(--bdr);
+    border-left: 3px solid var(--red);
+    padding: 13px 18px;
+    font-family: 'Barlow', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--t2);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: space-between;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    transition: all 0.15s;
+    border-radius: 2px;
+  }
+  .settings-toggle:hover { color: var(--text); border-color: var(--red); }
+  .settings-section {
+    display: none;
+    background: var(--s1);
+    border: 1px solid var(--bdr);
+    border-top: none;
+    padding: 20px 24px;
+  }
+  .settings-section.open { display: block; }
+
+  /* FORM FIELDS */
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .field-row.single { grid-template-columns: 1fr; }
+  .field-row.triple { grid-template-columns: 1fr 1fr 1fr; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+
+  #page-shipping label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--t2);
+  }
+  #page-shipping input, #page-shipping select, #page-shipping textarea {
+    font-family: 'Barlow', sans-serif;
+    font-size: 14px;
+    color: var(--text);
+    background: var(--s2);
+    border: 1px solid var(--bdr);
+    border-radius: 2px;
+    padding: 10px 12px;
+    outline: none;
+    transition: border-color 0.15s;
+    width: 100%;
+  }
+  #page-shipping input:focus, #page-shipping select:focus, #page-shipping textarea:focus {
+    border-color: var(--red);
+    background: #1f1f1f;
+  }
+  #page-shipping select option { background: var(--s2); }
+  #page-shipping textarea { resize: vertical; min-height: 68px; }
+
+  .prefix-wrap { position: relative; }
+  .prefix-wrap input { padding-left: 26px; }
+  .prefix {
+    position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+    font-size: 13px; color: var(--t2); pointer-events: none;
+  }
+
+  .section-divider {
+    border: none;
+    border-top: 1px solid var(--bdr);
+    margin: 20px 0;
+  }
+
+  /* SURCHARGES */
+  .surcharge-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .toggle-btn {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid var(--bdr);
+    border-radius: 2px;
+    background: var(--s2);
+    cursor: pointer;
+    font-family: 'Barlow', sans-serif;
+    font-size: 13px;
+    color: var(--t2);
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .toggle-btn:hover { border-color: var(--red); color: var(--text); }
+  .toggle-btn.active {
+    background: var(--red-gl);
+    border-color: var(--red);
+    color: var(--text);
+    font-weight: 600;
+  }
+  .toggle-btn .check {
+    width: 16px; height: 16px;
+    border: 1.5px solid var(--t3);
+    border-radius: 2px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+    flex-shrink: 0;
+    transition: all 0.15s;
+  }
+  .toggle-btn.active .check {
+    background: var(--red);
+    border-color: var(--red);
+    color: white;
+  }
+
+  /* LOOKUP */
+  .lookup-wrap { display: flex; gap: 10px; align-items: flex-end; }
+  .lookup-wrap .field { flex: 1; }
+  .btn-lookup {
+    background: var(--s2);
+    color: var(--text);
+    border: 1px solid var(--bdr);
+    padding: 10px 14px;
+    font-family: 'Barlow', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 2px;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 6px;
+    white-space: nowrap;
+    transition: all 0.15s;
+    letter-spacing: 0.04em;
+  }
+  .btn-lookup:hover { border-color: var(--red); color: var(--red); }
+  .btn-lookup:disabled { opacity: 0.35; cursor: not-allowed; }
+  .lookup-status {
+    font-size: 11px;
+    margin-top: 6px;
+    min-height: 14px;
+    letter-spacing: 0.03em;
+  }
+  .lookup-status.ok  { color: #4caf7d; }
+  .lookup-status.err { color: var(--red); }
+  .lookup-status.loading { color: var(--t2); }
+
+  /* PREVIEW PANEL */
+  .preview-sticky { position: sticky; top: 16px; }
+
+  .preview-panel {
+    background: var(--s1);
+    border: 1px solid var(--bdr);
+    border-top: 3px solid var(--red);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .preview-head {
+    background: var(--s2);
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--bdr);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .preview-head h3 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .live-dot {
+    width: 8px; height: 8px;
+    background: var(--red);
+    border-radius: 50%;
+    animation: pulse 1.5s infinite;
+    margin-right: 4px;
+    display: inline-block;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+  .live-label {
+    font-size: 10px;
+    color: var(--t2);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    display: flex; align-items: center; gap: 4px;
+  }
+
+  .preview-
+
+  .preview-route {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 18px;
+    font-size: 12px;
+    color: var(--t2);
+    border-left: 2px solid var(--red);
+    padding-left: 10px;
+  }
+  .route-arrow { color: var(--red); font-size: 14px; }
+
+  .cost-line {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--bdr);
+    font-size: 13px;
+  }
+  .cost-line .lbl { color: var(--t2); }
+  .cost-line .val { font-weight: 600; font-size: 13px; }
+
+  .cost-total {
+    margin-top: 14px;
+    padding: 14px;
+    background: var(--red);
+    border-radius: 2px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .cost-total .lbl {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.8);
+  }
+  .cost-total .val {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: white;
+  }
+
+  .preview-note {
+    margin-top: 12px;
+    font-size: 11px;
+    color: var(--t3);
+    line-height: 1.6;
+  }
+
+  /* GENERATE BUTTON */
+  .btn-generate {
+    margin-top: 16px;
+    width: 100%;
+    background: var(--red);
+    color: white;
+    border: none;
+    padding: 15px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-generate:hover { opacity: 0.88; }
+  .btn-generate:active { transform: scale(0.99); }
+
+  /* TOAST */
+  .toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: #1a3a2a;
+    border: 1px solid #4caf7d;
+    color: #4caf7d;
+    padding: 14px 20px;
+    border-radius: 3px;
+    font-size: 13px;
+    font-weight: 600;
+    display: none;
+    align-items: center; gap: 10px;
+    z-index: 100;
+  }
+  .toast.show { display: flex; animation: slideUp 0.2s ease; }
+  @keyframes slideUp { from { transform: translateY(10px); opacity: 0; } }
+
+  @media (max-width: 800px) {
+    .preview-sticky { position: static; }
+    .field-row.triple { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* ── Requests Inbox ── */
+
+
+  /* ── Email Button ── */
+  .btn-email {
+    margin-top: 10px;
+    width: 100%;
+    background: var(--s2);
+    color: var(--text);
+    border: 1px solid var(--bdr);
+    padding: 14px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-email:hover { border-color: var(--red); color: var(--red); }
+  .btn-email:active { transform: scale(0.99); }
+
+  /* ── Email Preview Panel ── */
+  .email-preview {
+    margin-top: 16px;
+    background: var(--s1);
+    border: 1px solid var(--bdr);
+    border-top: 2px solid var(--red);
+    border-radius: 2px;
+    overflow: hidden;
+    display: none;
+  }
+  .email-preview.show { display: block; }
+  .email-preview-head {
+    background: var(--s2);
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--bdr);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .email-preview-head span {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--t2);
+  }
+  .email-preview-
+  .email-field {
+    margin-bottom: 10px;
+  }
+  .email-field label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--t2);
+    display: block;
+    margin-bottom: 4px;
+  }
+  .email-field input {
+    font-family: 'Barlow', sans-serif;
+    font-size: 13px;
+    color: var(--text);
+    background: var(--s2);
+    border: 1px solid var(--bdr);
+    border-radius: 2px;
+    padding: 8px 12px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .email-field input:focus { border-color: var(--red); }
+  .email-body-preview {
+    font-family: 'Barlow', sans-serif;
+    font-size: 12px;
+    color: var(--t2);
+    background: var(--s2);
+    border: 1px solid var(--bdr);
+    border-radius: 2px;
+    padding: 12px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    max-height: 200px;
+    overflow-y: auto;
+    margin-bottom: 10px;
+  }
+  .email-actions {
+    display: flex; gap: 8px;
+  }
+  .btn-open-mail {
+    flex: 1;
+    background: var(--red);
+    color: white;
+    border: none;
+    padding: 11px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border-radius: 2px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    transition: opacity 0.15s;
+  }
+  .btn-open-mail:hover { opacity: 0.88; }
+  .btn-copy-email {
+    background: var(--s2);
+    color: var(--t2);
+    border: 1px solid var(--bdr);
+    padding: 11px 14px;
+    font-family: 'Barlow', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn-copy-email:hover { border-color: var(--red); color: var(--text); }
+  .email-note {
+    font-size: 10px;
+    color: var(--t3);
+    margin-top: 8px;
+    line-height: 1.5;
+    font-family: 'Barlow', sans-serif;
+  }
+
+
+  /* ── Discount field ── */
+  .discount-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--bdr);
+  }
+  .discount-wrap .field { flex: 1; }
+  .disc-type-toggle {
+    display: flex;
+    border: 1px solid var(--bdr);
+    border-radius: 2px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .disc-type-btn {
+    padding: 10px 12px;
+    font-family: 'Barlow', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    background: var(--s2);
+    color: var(--t2);
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .disc-type-btn.active { background: var(--red); color: white; }
+
+
+  /* ── HST exempt toggle ── */
+  .hst-row {
+    display: flex; align-items: center; gap: 10px;
+    margin-top: 14px; padding-top: 14px;
+    border-top: 1px solid var(--bdr);
+  }
+  .hst-exempt-label {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--t2); cursor: pointer;
+    user-select: none;
+  }
+  .hst-exempt-label input[type=checkbox] {
+    width: 16px; height: 16px; accent-color: var(--red);
+    cursor: pointer; background: none; border: none; padding: 0;
+  }
+
+
+  /* ── Invoice Panel ── */
+  .invoice-section {
+    margin-top: 24px;
+  }
+  .invoice-toggle-bar {
+    width: 100%;
+    background: var(--s1);
+    border: 1px solid var(--bdr);
+    border-left: 3px solid #e6a817;
+    padding: 13px 18px;
+    font-family: 'Barlow', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--t2);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: space-between;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    transition: all 0.15s;
+    border-radius: 2px;
+  }
+  .invoice-toggle-bar:hover { color: var(--text); }
+  .invoice-panel {
+    display: none;
+    background: var(--s1);
+    border: 1px solid var(--bdr);
+    border-top: none;
+    padding: 20px 24px;
+  }
+  .invoice-panel.open { display: block; }
+
+  /* Status toggle */
+  .status-toggle { display: flex; gap: 8px; margin-bottom: 14px; }
+  .status-btn {
+    flex: 1; padding: 10px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 14px; font-weight: 700;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    border: 1px solid var(--bdr);
+    border-radius: 2px; cursor: pointer;
+    background: var(--s2); color: var(--t2);
+    transition: all 0.15s; text-align: center;
+  }
+  .status-btn:hover { border-color: var(--text); color: var(--text); }
+  .status-btn.unpaid.active  { background: rgba(230,92,0,0.15); border-color: #e65c00; color: #e65c00; }
+  .status-btn.paid.active    { background: rgba(76,175,125,0.15); border-color: #4caf7d; color: #4caf7d; }
+
+  /* Payment method */
+  .pay-method-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 10px; }
+  .pay-btn {
+    padding: 9px 8px; text-align: center;
+    font-family: 'Barlow', sans-serif; font-size: 12px; font-weight: 600;
+    border: 1px solid var(--bdr); border-radius: 2px;
+    background: var(--s2); color: var(--t2);
+    cursor: pointer; transition: all 0.15s; user-select: none;
+  }
+  .pay-btn:hover { border-color: #e6a817; color: var(--text); }
+  .pay-btn.active { background: rgba(230,168,23,0.12); border-color: #e6a817; color: #e6a817; font-weight: 700; }
+
+  /* Generate invoice button */
+  .btn-invoice {
+    margin-top: 14px; width: 100%;
+    background: #e6a817; color: #000;
+    border: none; padding: 15px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 16px; font-weight: 700;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    border-radius: 2px; cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-invoice:hover { opacity: 0.88; }
+  .btn-invoice:active { transform: scale(0.99); }
+
+  /* Invoice note */
+  .invoice-note {
+    font-size: 11px; color: var(--t3);
+    margin-top: 8px; line-height: 1.6;
+  }
+
+
+/* ── Portal shipping layout ── */
+.qt-wrap {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-  margin-bottom: 14px;
+  grid-template-columns: 1fr 380px;
+  gap: 32px;
+  align-items: start;
 }
-.field-row.single  { grid-template-columns: 1fr; }
-.field-row.triple  { grid-template-columns: 1fr 1fr 1fr; }
-
-/* Quote cards */
-.qt-card {
-  background: var(--s1);
-  border: 1px solid var(--bdr);
-  border-radius: 3px;
-  margin-bottom: 16px;
-  overflow: hidden;
-}
-.qt-card-hdr {
-  padding: 12px 18px;
-  background: var(--s2);
-  border-bottom: 1px solid var(--bdr);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.qt-card-body { padding: 20px; }
-.qt-num {
-  background: var(--red);
-  color: white;
-  font-family: 'Barlow Condensed', sans-serif;
-  font-weight: 700;
-  font-size: 12px;
-  width: 26px; height: 26px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 2px;
-  flex-shrink: 0;
-}
-.qt-title {
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-/* Surcharge toggles */
-.surcharge-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-bottom: 14px;
-}
-.toggle-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  border: 1px solid var(--bdr);
-  border-radius: 3px;
-  cursor: pointer;
-  transition: all 0.15s;
-  user-select: none;
-  font-size: 13px;
-  color: var(--t2);
-  background: var(--s2);
-}
-.toggle-btn:hover { border-color: var(--bdr2); color: var(--text); }
-.toggle-btn.active {
-  border-color: var(--red);
-  background: var(--red-gl);
-  color: var(--text);
-}
-.toggle-icon { font-size: 16px; flex-shrink: 0; }
-
-/* Discount bar */
-.discount-wrap {
-  display: flex;
-  align-items: flex-end;
-  gap: 10px;
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid var(--bdr);
-}
-.disc-type-toggle {
-  display: flex;
-  border: 1px solid var(--bdr);
-  border-radius: 2px;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-.disc-type-btn {
-  padding: 9px 13px;
-  font-size: 12px;
-  font-weight: 600;
-  background: var(--s2);
-  color: var(--t2);
-  border: none;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.disc-type-btn.active { background: var(--red); color: white; }
-
-/* HST row */
-.hst-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid var(--bdr);
-  font-size: 13px;
-  color: var(--t2);
-}
-.hst-row label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
-
-/* Preview panel */
-.preview-wrap {
-  position: sticky;
-  top: 80px;
-}
-.preview-panel {
-  background: var(--s1);
-  border: 1px solid var(--bdr);
-  border-top: 3px solid var(--red);
-  border-radius: 3px;
-  overflow: hidden;
-  margin-bottom: 10px;
-}
-.preview-hdr {
-  background: var(--s2);
-  padding: 13px 18px;
-  border-bottom: 1px solid var(--bdr);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.preview-hdr h3 {
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-.preview-body { padding: 16px; }
-.cost-line {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 6px 0;
-  border-bottom: 1px solid var(--bdr);
-  font-size: 13px;
-}
-.cost-line:last-of-type { border-bottom: none; }
-.cost-line .lbl { color: var(--t2); }
-.cost-line .val { font-family: 'DM Mono', monospace; font-size: 13px; }
-.cost-total {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 12px;
-  padding: 14px 16px;
-  background: var(--red);
-  border-radius: 2px;
-}
-.cost-total .lbl {
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgba(255,255,255,0.75);
-}
-.cost-total .val {
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 30px;
-  font-weight: 800;
-  color: white;
-  line-height: 1;
-}
-
-/* Action buttons on preview */
-.btn-generate {
-  width: 100%;
-  background: var(--red);
-  color: white;
-  border: none;
-  padding: 14px;
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  border-radius: 2px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  transition: opacity 0.15s;
-  margin-bottom: 8px;
-}
-.btn-generate:hover { opacity: 0.88; }
-
-.btn-action-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.btn-outline {
-  background: var(--s2);
-  color: var(--text);
-  border: 1px solid var(--bdr);
-  padding: 11px;
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  border-radius: 2px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  transition: all 0.15s;
-}
-.btn-outline:hover { border-color: var(--red); color: var(--red); }
-.btn-outline.gold { border-color: var(--gold); color: var(--gold); }
-.btn-outline.gold:hover { background: var(--gold-gl); }
-
-/* Save to portal row */
-.save-row {
-  background: var(--s2);
-  border: 1px solid var(--bdr);
-  border-radius: 3px;
-  padding: 14px;
-  margin-top: 10px;
-}
-.save-row-inner {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-/* Invoice panel */
-.inv-panel {
-  background: var(--s2);
-  border: 1px solid var(--bdr);
-  border-left: 3px solid var(--gold);
-  border-radius: 2px;
-  overflow: hidden;
-  margin-top: 8px;
-}
-.inv-panel-hdr {
-  padding: 11px 16px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--gold);
-  user-select: none;
-}
-.inv-panel-body { padding: 16px; display: none; }
-.inv-panel-body.open { display: block; }
-.status-toggle { display: flex; gap: 8px; margin-bottom: 12px; }
-.status-btn {
-  flex: 1;
-  padding: 9px;
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  border: 1px solid var(--bdr);
-  border-radius: 2px;
-  cursor: pointer;
-  background: var(--s1);
-  color: var(--t2);
-  text-align: center;
-  transition: all 0.15s;
-}
-.status-btn.unpaid.active { background: rgba(230,92,0,0.15); border-color: #e65c00; color: #e65c00; }
-.status-btn.paid.active   { background: rgba(46,204,113,0.15); border-color: var(--green); color: var(--green); }
-.pay-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 6px;
-  margin-bottom: 12px;
-}
-.pay-btn {
-  padding: 8px;
-  text-align: center;
-  font-size: 11px;
-  font-weight: 600;
-  border: 1px solid var(--bdr);
-  border-radius: 2px;
-  background: var(--s1);
-  color: var(--t2);
-  cursor: pointer;
-  transition: all 0.15s;
-  user-select: none;
-}
-.pay-btn.active { background: var(--gold-gl); border-color: var(--gold); color: var(--gold); font-weight: 700; }
-.btn-inv {
-  width: 100%;
-  background: var(--gold);
-  color: #000;
-  border: none;
-  padding: 13px;
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  border-radius: 2px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  transition: opacity 0.15s;
-}
-.btn-inv:hover { opacity: 0.88; }
-
-/* Email panel */
-.email-panel {
-  background: var(--s2);
-  border: 1px solid var(--bdr);
-  border-top: 2px solid var(--red);
-  border-radius: 2px;
-  overflow: hidden;
-  margin-top: 8px;
-  display: none;
-}
-.email-panel.open { display: block; }
-.email-panel-hdr {
-  padding: 10px 14px;
-  background: var(--s1);
-  border-bottom: 1px solid var(--bdr);
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--t2);
-}
-.email-panel-body { padding: 14px; }
-.email-field { margin-bottom: 10px; }
-.email-field label {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--t3);
-  display: block;
-  margin-bottom: 4px;
-}
-.email-field input {
-  width: 100%;
-  background: var(--s1);
-  border: 1px solid var(--bdr);
-  border-radius: 2px;
-  padding: 7px 10px;
-  font-size: 12px;
-  color: var(--text);
-  outline: none;
-}
-.email-preview-body {
-  font-family: 'Barlow', sans-serif;
-  font-size: 11px;
-  color: var(--t2);
-  background: var(--s1);
-  border: 1px solid var(--bdr);
-  border-radius: 2px;
-  padding: 10px;
-  line-height: 1.7;
-  white-space: pre-wrap;
-  max-height: 150px;
-  overflow-y: auto;
-  margin-bottom: 10px;
-}
-
-/* Lookup row */
-.lookup-row {
-  display: flex;
-  gap: 8px;
-  align-items: flex-end;
-  margin-bottom: 14px;
-}
-.lookup-row .field { flex: 1; }
-
-/* Responsive */
-@media (max-width: 1100px) {
-  .qt-wrap { grid-template-columns: 1fr; }
-  .stats-grid { grid-template-columns: 1fr 1fr; }
-  .charts-grid { grid-template-columns: 1fr; }
-}
-@media (max-width: 768px) {
-  .sidebar { display: none; }
-  .field-row { grid-template-columns: 1fr; }
-}
-
+@media (max-width: 1100px) { .qt-wrap { grid-template-columns: 1fr; } .preview-sticky { position: static; } }
 </style>
 </head>
 <body>
@@ -1406,172 +1543,140 @@ select.form-input option{background:var(--bg3);}
     <div class="page-hdr-right"><button class="btn btn-secondary" onclick="navTo('quotes')">View Saved Quotes &rarr;</button></div>
   </div>
 
-  <div class="qt-wrap" style="display:grid;grid-template-columns:1fr 360px;gap:24px;align-items:start;">
-
+  <div class="qt-wrap">
     <!-- LEFT: Form panels -->
     <div>
 
-      <!-- Panel 1: Customer -->
-      <div class="qt-card">
-        <div class="qt-card-hdr">
-          <span class="qt-num">1</span>
-          <span class="qt-title">Customer Information</span>
-        </div>
-        <div class="qt-card-body">
+      <!-- Settings (collapsible) -->
+      <div style="margin-bottom:20px;">
+        <button class="settings-toggle" onclick="toggleSettings(this)">
+          <span>&#9881;&nbsp;&nbsp;Pricing &amp; Rate Settings</span>
+          <span class="arr">&#9660;</span>
+        </button>
+        <div class="settings-section" id="settingsSection">
           <div class="field-row">
-            <div class="field">
-              <label>Customer Name</label>
-              <input type="text" id="custName" placeholder="Jane Smith" list="custList" oninput="onCustInput(this.value)">
-            </div>
-            <div class="field">
-              <label>Company</label>
-              <input type="text" id="companyName" value="Khair Group">
-            </div>
+            <div class="field"><label>Base Rate (CAD)</label><div class="prefix-wrap"><span class="prefix">$</span><input type="number" id="baseRate" value="25" min="0" step="1" oninput="recalc()"></div></div>
+            <div class="field"><label>Rate per km (CAD)</label><div class="prefix-wrap"><span class="prefix">$</span><input type="number" id="ratePerKm" value="1.85" min="0" step="0.05" oninput="recalc()"></div></div>
           </div>
           <div class="field-row">
-            <div class="field">
-              <label>Email</label>
-              <input type="email" id="custEmail" placeholder="jane@example.com">
-            </div>
-            <div class="field">
-              <label>Phone</label>
-              <input type="tel" id="custPhone" placeholder="(416) 555-0100">
-            </div>
+            <div class="field"><label>Labour Rate (CAD/hr)</label><div class="prefix-wrap"><span class="prefix">$</span><input type="number" id="labourRate" value="45" min="0" step="1" oninput="recalc()"></div></div>
+            <div class="field"><label>Profit Margin (%)</label><div class="prefix-wrap"><span class="prefix">%</span><input type="number" id="margin" value="20" min="0" max="100" step="1" oninput="recalc()"></div></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>Fuel Cost (CAD/L)</label><div class="prefix-wrap"><span class="prefix">$</span><input type="number" id="fuelCost" value="1.72" min="0" step="0.01" oninput="recalc()"></div></div>
+            <div class="field"><label>Fuel Efficiency (L/100km)</label><input type="number" id="fuelEff" value="11" min="1" step="0.5" oninput="recalc()"></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>After-Hours Surcharge</label><div class="prefix-wrap"><span class="prefix">$</span><input type="number" id="afterHoursFee" value="35" min="0" step="5" oninput="recalc();document.getElementById('afterHoursVal').textContent=this.value"></div></div>
+            <div class="field"><label>Urgent/Rush Surcharge</label><div class="prefix-wrap"><span class="prefix">$</span><input type="number" id="urgentFee" value="50" min="0" step="5" oninput="recalc();document.getElementById('urgentVal').textContent=this.value"></div></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>Oversized Surcharge</label><div class="prefix-wrap"><span class="prefix">$</span><input type="number" id="oversizedFee" value="40" min="0" step="5" oninput="recalc();document.getElementById('oversizedVal').textContent=this.value"></div></div>
+            <div class="field"><label>Fragile Surcharge</label><div class="prefix-wrap"><span class="prefix">$</span><input type="number" id="fragileFee" value="20" min="0" step="5" oninput="recalc();document.getElementById('fragileVal').textContent=this.value"></div></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>Quote Valid For (days)</label><input type="number" id="validDays" value="7" min="1" step="1"></div>
+            <div class="field"><label>Company Name</label><input type="text" id="companyName" value="Khair Group"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel 1: Customer -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-num">01</div>
+          <div class="panel-title">Customer Information</div>
+        </div>
+        <div class="panel-body">
+          <div class="field-row">
+            <div class="field"><label>Customer / Company Name</label><input type="text" id="custName" placeholder="Jane Smith" list="custList" oninput="onCustInput(this.value);recalc()"></div>
+            <div class="field"><label>Contact Email</label><input type="email" id="custEmail" placeholder="jane@example.com"></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>Phone Number</label><input type="tel" id="custPhone" placeholder="(416) 555-0100"></div>
+            <div class="field"><label>Quote Reference #</label><input type="text" id="quoteRef" placeholder="Auto-generated"></div>
           </div>
           <div class="field-row single">
-            <div class="field">
-              <label>Customer Address</label>
-              <input type="text" id="custAddr" placeholder="123 Main St, City, ON">
-            </div>
-          </div>
-          <div class="field-row">
-            <div class="field">
-              <label>Quote Ref #</label>
-              <input type="text" id="quoteRef" placeholder="Auto-generated">
-            </div>
-            <div class="field">
-              <label>Valid Days</label>
-              <input type="number" id="validDays" value="7" min="1">
-            </div>
+            <div class="field"><label>Customer Address</label><input type="text" id="custAddr" placeholder="248 Grand River Ave, Brantford, ON"></div>
           </div>
         </div>
       </div>
 
       <!-- Panel 2: Delivery -->
-      <div class="qt-card">
-        <div class="qt-card-hdr">
-          <span class="qt-num">2</span>
-          <span class="qt-title">Delivery Details</span>
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-num">02</div>
+          <div class="panel-title">Delivery Details</div>
         </div>
-        <div class="qt-card-body">
+        <div class="panel-body">
           <div class="field-row single">
-            <div class="field">
-              <label>Pickup Address (A)</label>
-              <input type="text" id="addrA" placeholder="123 Main St, Toronto, ON" oninput="recalc()">
-            </div>
+            <div class="field"><label>Pickup Address (Location A)</label><input type="text" id="addrA" placeholder="123 Main St, Toronto, ON" oninput="recalc()"></div>
           </div>
           <div class="field-row single">
-            <div class="field">
-              <label>Dropoff Address (B)</label>
-              <input type="text" id="addrB" placeholder="456 Elm Ave, Ottawa, ON" oninput="recalc()">
-            </div>
+            <div class="field"><label>Dropoff Address (Location B)</label><input type="text" id="addrB" placeholder="456 Elm Ave, Ottawa, ON" oninput="recalc()"></div>
           </div>
-          <div class="lookup-row">
-            <div class="field">
-              <label>Distance (km)</label>
-              <input type="number" id="distance" value="0" min="0" oninput="recalc()">
+
+          <div style="margin-bottom:14px;">
+            <div class="lookup-wrap">
+              <div class="field">
+                <label>Distance (km)</label>
+                <input type="number" id="distance" placeholder="Auto or manual" min="0" step="1" oninput="recalc()">
+              </div>
+              <div class="field">
+                <label>Drive Time (hrs)</label>
+                <input type="number" id="driveTime" placeholder="Auto or manual" min="0" step="0.5" oninput="recalc()">
+              </div>
+              <div class="field">
+                <label>Delivery Date</label>
+                <input type="date" id="delivDate">
+              </div>
+              <button class="btn-lookup" onclick="lookupDistance()" title="Open Google Maps for distance">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                Lookup
+              </button>
             </div>
-            <button class="btn btn-secondary" onclick="lookupDistance()" style="margin-bottom:1px;flex-shrink:0;">
-              &#128205; Lookup on Maps
-            </button>
+            <div class="lookup-status" id="lookupStatus"></div>
           </div>
+
+          <hr class="section-divider">
           <div class="field-row">
+            <div class="field"><label>Package Description</label><input type="text" id="pkgDesc" placeholder="3 boxes, approx. 40 lbs total"></div>
             <div class="field">
-              <label>Drive Time (hrs)</label>
-              <input type="number" id="driveTime" value="0" min="0" step="0.5" oninput="recalc()">
-            </div>
-            <div class="field">
-              <label>Base Rate ($)</label>
-              <input type="number" id="baseRate" value="25" min="0" oninput="recalc()">
-            </div>
-          </div>
-          <div class="field-row">
-            <div class="field">
-              <label>Rate / km ($)</label>
-              <input type="number" id="ratePerKm" value="1.85" step="0.01" oninput="recalc()">
-            </div>
-            <div class="field">
-              <label>Labour Rate ($/hr)</label>
-              <input type="number" id="labourRate" value="45" oninput="recalc()">
-            </div>
-          </div>
-          <div class="field-row">
-            <div class="field">
-              <label>Fuel Cost ($/L)</label>
-              <input type="number" id="fuelCost" value="1.72" step="0.01" oninput="recalc()">
-            </div>
-            <div class="field">
-              <label>Fuel Efficiency (L/100km)</label>
-              <input type="number" id="fuelEff" value="11" step="0.1" oninput="recalc()">
-            </div>
-          </div>
-          <div class="field-row">
-            <div class="field">
-              <label>Margin (%)</label>
-              <input type="number" id="margin" value="20" min="0" oninput="recalc()">
-            </div>
-            <div class="field">
-              <label>Internal Notes</label>
-              <input type="text" id="internalNotes" placeholder="Internal only...">
+              <label>Package Size</label>
+              <select id="pkgSize" oninput="recalc()">
+                <option value="standard">Standard</option>
+                <option value="large">Large</option>
+                <option value="oversized">Oversized (+surcharge)</option>
+              </select>
             </div>
           </div>
 
-          <!-- Surcharges -->
-          <div style="padding-top:14px;border-top:1px solid var(--bdr);">
-            <div style="font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;">Surcharges</div>
+          <hr class="section-divider">
+          <div>
+            <label style="display:block;margin-bottom:10px;">Applicable Surcharges</label>
             <div class="surcharge-grid">
-              <div class="toggle-btn" id="btn-afterHours" onclick="toggleSurcharge('afterHours',this)">
-                <span class="toggle-icon">&#127769;</span>
-                <span>After Hours <span style="color:var(--t3);font-size:12px;">(+$<span id="afterHoursVal">35</span>)</span></span>
+              <div class="toggle-btn" id="tog-afterhours" onclick="toggleSurcharge('afterhours')">
+                <span class="check">&#10003;</span>
+                After-Hours (+$<span id="afterHoursVal">35</span>)
               </div>
-              <div class="toggle-btn" id="btn-urgent" onclick="toggleSurcharge('urgent',this)">
-                <span class="toggle-icon">&#9889;</span>
-                <span>Urgent <span style="color:var(--t3);font-size:12px;">(+$<span id="urgentVal">50</span>)</span></span>
+              <div class="toggle-btn" id="tog-urgent" onclick="toggleSurcharge('urgent')">
+                <span class="check">&#10003;</span>
+                Urgent / Rush (+$<span id="urgentVal">50</span>)
               </div>
-              <div class="toggle-btn" id="btn-oversized" onclick="toggleSurcharge('oversized',this)">
-                <span class="toggle-icon">&#128230;</span>
-                <span>Oversized <span style="color:var(--t3);font-size:12px;">(+$<span id="oversizedVal">40</span>)</span></span>
+              <div class="toggle-btn" id="tog-oversized" onclick="toggleSurcharge('oversized')">
+                <span class="check">&#10003;</span>
+                Oversized (+$<span id="oversizedVal">40</span>)
               </div>
-              <div class="toggle-btn" id="btn-fragile" onclick="toggleSurcharge('fragile',this)">
-                <span class="toggle-icon">&#128142;</span>
-                <span>Fragile <span style="color:var(--t3);font-size:12px;">(+$<span id="fragileVal">20</span>)</span></span>
-              </div>
-            </div>
-            <div class="field-row">
-              <div class="field">
-                <label>After Hours Fee ($)</label>
-                <input type="number" id="afterHoursFee" value="35" oninput="recalc();document.getElementById('afterHoursVal').textContent=this.value">
-              </div>
-              <div class="field">
-                <label>Urgent Fee ($)</label>
-                <input type="number" id="urgentFee" value="50" oninput="recalc();document.getElementById('urgentVal').textContent=this.value">
-              </div>
-            </div>
-            <div class="field-row">
-              <div class="field">
-                <label>Oversized Fee ($)</label>
-                <input type="number" id="oversizedFee" value="40" oninput="recalc();document.getElementById('oversizedVal').textContent=this.value">
-              </div>
-              <div class="field">
-                <label>Fragile Fee ($)</label>
-                <input type="number" id="fragileFee" value="20" oninput="recalc();document.getElementById('fragileVal').textContent=this.value">
+              <div class="toggle-btn" id="tog-fragile" onclick="toggleSurcharge('fragile')">
+                <span class="check">&#10003;</span>
+                Fragile Handling (+$<span id="fragileVal">20</span>)
               </div>
             </div>
           </div>
 
-          <!-- Discount -->
+          <hr class="section-divider">
           <div class="discount-wrap">
-            <div class="field" style="flex:1;">
+            <div class="field">
               <label>Discount</label>
               <input type="number" id="discountValue" min="0" step="0.01" placeholder="0" oninput="recalc()">
             </div>
@@ -1581,24 +1686,27 @@ select.form-input option{background:var(--bg3);}
             </div>
           </div>
 
-          <!-- HST -->
           <div class="hst-row">
-            <label>
-              <input type="checkbox" id="hstExempt" onchange="recalc()" style="width:15px;height:15px;accent-color:var(--red);">
-              HST / GST Exempt (0%)
+            <label class="hst-exempt-label">
+              <input type="checkbox" id="hstExempt" onchange="recalc()">
+              HST/GST Exempt (0%)
             </label>
-            <span style="margin-left:auto;font-size:11px;color:var(--t3);">Default: 13% Ontario</span>
+            <span style="font-size:11px;color:var(--t3);margin-left:auto;">Default: 13% Ontario HST</span>
+          </div>
+
+          <div class="field-row single" style="margin-top:14px;">
+            <div class="field"><label>Internal Notes (not shown to customer)</label><textarea id="internalNotes" placeholder="e.g. Gate code #1234, deliver before noon"></textarea></div>
           </div>
         </div>
       </div>
 
-      <!-- Panel 3: Save -->
-      <div class="qt-card">
-        <div class="qt-card-hdr">
-          <span class="qt-num">3</span>
-          <span class="qt-title">Save to Portal</span>
+      <!-- Panel 3: Save to Portal -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-num">03</div>
+          <div class="panel-title">Save to Portal</div>
         </div>
-        <div class="qt-card-body">
+        <div class="panel-body">
           <div class="field-row">
             <div class="field">
               <label>Quote Status</label>
@@ -1613,7 +1721,7 @@ select.form-input option{background:var(--bg3);}
               <input type="date" id="qFollowup">
             </div>
           </div>
-          <button class="btn btn-secondary" style="width:100%;" onclick="saveQuoteToPortal()">
+          <button class="btn-lookup" onclick="saveQuoteToPortal()" style="width:100%;justify-content:center;padding:12px;font-size:14px;">
             &#128190; Save Quote to Portal
           </button>
         </div>
@@ -1622,101 +1730,96 @@ select.form-input option{background:var(--bg3);}
     </div>
 
     <!-- RIGHT: Preview + Actions -->
-    <div class="preview-wrap">
-
-      <!-- Live cost preview -->
+    <div class="preview-sticky">
       <div class="preview-panel">
-        <div class="preview-hdr">
-          <h3>Live Preview</h3>
-          <span id="previewRef" style="font-size:11px;color:var(--t3);font-family:monospace;"></span>
+        <div class="preview-head">
+          <h3>Live Quote Preview</h3>
+          <span class="live-label"><span class="live-dot"></span>Live</span>
         </div>
         <div class="preview-body">
-          <div class="cost-line"><span class="lbl">Base</span><span class="val" id="pBase">$0.00</span></div>
-          <div class="cost-line"><span class="lbl">Distance</span><span class="val" id="pDist">$0.00</span></div>
-          <div class="cost-line"><span class="lbl">Fuel</span><span class="val" id="pFuel">$0.00</span></div>
-          <div class="cost-line"><span class="lbl">Labour</span><span class="val" id="pLabour">$0.00</span></div>
-          <div class="cost-line" id="discountLine" style="display:none;">
-            <span class="lbl">Discount</span>
-            <span class="val" id="pDiscount" style="color:var(--green);"></span>
+          <div class="preview-route">
+            <span id="previewA">Location A</span>
+            <span class="route-arrow">&#8594;</span>
+            <span id="previewB">Location B</span>
           </div>
-          <div class="cost-line"><span class="lbl">Subtotal</span><span class="val" id="pSubtotal">$0.00</span></div>
-          <div class="cost-line">
-            <span class="lbl">Margin (<span id="pMarginPct">20</span>%)</span>
-            <span class="val" id="pMargin">$0.00</span>
-          </div>
-          <div class="cost-line">
-            <span class="lbl">HST/GST (<span id="pHstPct">13</span>%)</span>
-            <span class="val" id="pHst">$0.00</span>
-          </div>
+          <div class="cost-line"><span class="lbl">Base rate</span><span class="val" id="pBase">&#8212;</span></div>
+          <div class="cost-line"><span class="lbl">Distance (<span id="pKmLabel">0</span> km)</span><span class="val" id="pDist">&#8212;</span></div>
+          <div class="cost-line"><span class="lbl">Fuel (<span id="pFuelL">0</span> L)</span><span class="val" id="pFuel">&#8212;</span></div>
+          <div class="cost-line"><span class="lbl">Labour (<span id="pHrLabel">0</span> hrs)</span><span class="val" id="pLabour">&#8212;</span></div>
+          <div id="surchargeLines"></div>
+          <div class="cost-line"><span class="lbl">Subtotal</span><span class="val" id="pSubtotal">&#8212;</span></div>
+          <div class="cost-line" id="discountLine" style="display:none;"><span class="lbl">Discount</span><span class="val" id="pDiscount" style="color:#4caf7d;">&#8212;</span></div>
+          <div class="cost-line"><span class="lbl">Margin (<span id="pMarginPct">20</span>%)</span><span class="val" id="pMargin">&#8212;</span></div>
+          <div class="cost-line"><span class="lbl">HST/GST (<span id="pHstPct">13</span>%)</span><span class="val" id="pHst">&#8212;</span></div>
           <div class="cost-total">
-            <span class="lbl">Total (CAD)</span>
+            <span class="lbl">Final (CAD)</span>
             <span class="val" id="pTotal">$0.00</span>
           </div>
+          <div class="preview-note" id="previewNote">Enter distance &amp; drive time to see a live estimate.</div>
         </div>
       </div>
 
-      <!-- Generate PDF -->
       <button class="btn-generate" onclick="generateAndEmail()">
-        &#128196; Generate Quote PDF
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        Generate PDF Quote
       </button>
 
-      <!-- Action row -->
-      <div class="btn-action-row">
-        <button class="btn-outline" onclick="toggleEmailPanel()">&#9993; Email Quote</button>
-        <button class="btn-outline gold" onclick="toggleInvoicePanel(this)">&#129534; Invoice</button>
-      </div>
+      <button class="btn-email" onclick="toggleEmailPanel()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,12 2,6"/></svg>
+        Email Quote to Customer
+      </button>
 
-      <!-- Email panel -->
-      <div class="email-panel" id="emailPreview">
-        <div class="email-panel-hdr">&#128139; Email Draft</div>
-        <div class="email-panel-body">
+      <!-- Email Panel -->
+      <div class="email-preview" id="emailPreview">
+        <div class="email-preview-head">
+          <span>&#128139; Email Draft</span>
+          <span id="emailStatus" style="font-size:11px;color:var(--t2);font-family:Barlow,sans-serif;text-transform:none;letter-spacing:0;"></span>
+        </div>
+        <div class="email-preview-body">
           <div class="email-field">
-            <label>To</label>
+            <label>To (Customer Email)</label>
             <input type="email" id="emailTo" placeholder="customer@example.com">
           </div>
           <div class="email-field">
             <label>Subject</label>
-            <input type="text" id="emailSubject" value="Delivery Quote — Khair Group">
+            <input type="text" id="emailSubject" value="Delivery Quote from Khair Group">
           </div>
           <div class="email-field">
-            <label>Body Preview</label>
-            <div class="email-preview-body" id="emailBodyPreview"></div>
+            <label>Email Body Preview</label>
+            <div class="email-body-preview" id="emailBodyPreview"></div>
           </div>
-          <div style="display:flex;gap:8px;">
-            <button class="btn btn-primary" onclick="openMailClient()" style="flex:1;">Open in Mail</button>
-            <button class="btn btn-secondary" onclick="copyEmailBody()" id="copyEmailBtn">Copy</button>
+          <div class="email-actions">
+            <button class="btn-open-mail" onclick="openMailClient()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,12 2,6"/></svg>
+              Open in Mail App
+            </button>
+            <button class="btn-copy-email" onclick="copyEmailBody()" id="copyEmailBtn">Copy Body</button>
           </div>
-          <div style="font-size:10px;color:var(--t3);margin-top:8px;">Attach the PDF manually before sending.</div>
+          <div class="email-note">Attach the generated PDF before sending.</div>
         </div>
       </div>
 
-      <!-- Invoice panel -->
-      <div class="inv-panel" id="invoicePanelWrap">
-        <div class="inv-panel-hdr" onclick="toggleInvoicePanel(this)">
+      <!-- Invoice Panel -->
+      <div class="invoice-section">
+        <button class="invoice-toggle-bar" onclick="toggleInvoicePanel(this)">
           <span>&#129534; Generate Invoice</span>
           <span id="invPanelArr">&#9660;</span>
-        </div>
-        <div class="inv-panel-body" id="invoicePanel">
+        </button>
+        <div class="invoice-panel" id="invoicePanel">
           <div class="status-toggle">
             <div class="status-btn unpaid active" id="statusUnpaid" onclick="setInvoiceStatus('unpaid',this)">&#9203; Unpaid</div>
             <div class="status-btn paid" id="statusPaid" onclick="setInvoiceStatus('paid',this)">&#9989; Paid</div>
           </div>
           <div class="field-row">
-            <div class="field">
-              <label>Invoice #</label>
-              <input type="text" id="invoiceNum" placeholder="Auto-generated">
-            </div>
-            <div class="field">
-              <label>Due Date</label>
-              <input type="date" id="invoiceDueDate">
-            </div>
+            <div class="field"><label>Invoice #</label><input type="text" id="invoiceNum" placeholder="Auto-generated"></div>
+            <div class="field"><label>Due Date</label><input type="date" id="invoiceDueDate"></div>
           </div>
           <div class="field" style="margin-bottom:12px;">
             <label>Payment Terms</label>
             <input type="text" id="invoiceTermsNote" value="Payment due within 30 days. Late payments subject to 5% fee.">
           </div>
-          <div style="font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--t3);margin-bottom:8px;">Accepted Payment Methods</div>
-          <div class="pay-grid">
+          <label style="display:block;margin-bottom:8px;">Accepted Payment Methods</label>
+          <div class="pay-method-grid">
             <div class="pay-btn active" id="pay-etransfer" onclick="togglePayMethod('etransfer',this)">E-Transfer</div>
             <div class="pay-btn active" id="pay-bank" onclick="togglePayMethod('bank',this)">Bank Transfer</div>
             <div class="pay-btn active" id="pay-credit" onclick="togglePayMethod('credit',this)">Credit Card</div>
@@ -1724,11 +1827,15 @@ select.form-input option{background:var(--bg3);}
             <div class="pay-btn" id="pay-cheque" onclick="togglePayMethod('cheque',this)">Cheque</div>
             <div class="pay-btn" id="pay-prepaid" onclick="togglePayMethod('prepaid',this)">Full Prepaid</div>
           </div>
-          <div class="field" style="margin-bottom:12px;margin-top:4px;">
-            <label>E-Transfer Email</label>
+          <div class="field" style="margin-top:10px;margin-bottom:12px;">
+            <label>E-Transfer Email / Payment Ref</label>
             <input type="text" id="invoicePayRef" value="khalid@khairgroup.ca">
           </div>
-          <button class="btn-inv" onclick="generateInvoice()">&#129534; Generate Invoice PDF</button>
+          <button class="btn-invoice" onclick="generateInvoice()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="15" y2="11"/><line x1="9" y1="15" x2="13" y2="15"/></svg>
+            Generate Invoice PDF
+          </button>
+          <div class="invoice-note">Invoice pulls data from the current quote fields above.</div>
         </div>
       </div>
 
@@ -2302,6 +2409,16 @@ function calcQuote() {
            marginPct, marginAmt, preHst,
            hstExempt, hstRate, hstAmt, total };
 }
+
+function toggleSettings(btn) {
+  var sec = document.getElementById('settingsSection');
+  if(!sec) return;
+  var open = sec.classList.contains('open');
+  sec.classList.toggle('open', !open);
+  var arr = btn.querySelector('.arr');
+  if(arr) arr.textContent = open ? '&#9660;' : '&#9650;';
+}
+
 function recalc() {
   const q = calcQuote();
   g('previewA').textContent = g('addrA').value || 'Location A';
@@ -2823,7 +2940,13 @@ function buildEmailBody() {
   return lines.join('\n');
 }
 
-function toggleSurcharge(name,btn){_surcharges[name]=!_surcharges[name];btn.classList.toggle('active',_surcharges[name]);recalc();}
+function toggleSurcharge(name, btn) {
+  // Support both tog- prefix (original) and btn- prefix (portal)
+  var el = document.getElementById('tog-'+name) || document.getElementById('btn-'+name);
+  _surcharges[name] = !_surcharges[name];
+  if(el) el.classList.toggle('active', _surcharges[name]);
+  recalc();
+}
 function setDiscType(type,btn){window._discType=type;document.querySelectorAll('.disc-type-btn').forEach(function(b){b.classList.remove('active');});btn.classList.add('active');recalc();}
 function lookupDistance(){var a=(g('addrA')||{}).value||'';var b=(g('addrB')||{}).value||'';if(!a||!b){showToast('Enter both addresses first','info');return;}window.open('https://www.google.com/maps/dir/'+encodeURIComponent(a)+'/'+encodeURIComponent(b),'_blank');showToast('Enter the distance from Google Maps','info');}
 
@@ -2846,8 +2969,8 @@ async function saveQuoteToPortal() {
 function toggleEmailPanel() {
   var p = document.getElementById('emailPreview');
   if(!p) return;
-  var open = p.classList.contains('open');
-  p.classList.toggle('open', !open);
+  var open = p.classList.contains('show');
+  p.classList.toggle('show', !open);
   if(!open) {
     var ref = generateQuoteRef();
     var s = document.getElementById('emailSubject');
@@ -2855,7 +2978,10 @@ function toggleEmailPanel() {
     var b = document.getElementById('emailBodyPreview');
     if(b) b.textContent = buildEmailBody();
     var to = document.getElementById('emailTo');
-    if(to && !to.value) to.value = document.getElementById('custEmail').value || '';
+    if(to && !to.value) {
+      var custEmail = document.getElementById('custEmail');
+      if(custEmail) to.value = custEmail.value || '';
+    }
   }
 }
 
