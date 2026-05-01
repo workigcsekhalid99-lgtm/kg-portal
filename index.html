@@ -1,22 +1,4 @@
-function toggleInvoicePanel(btn) {
-  var panel = document.getElementById('invoicePanel');
-  var arr   = document.getElementById('invPanelArr');
-  if(!panel) return;
-  var open = panel.classList.contains('open');
-  panel.classList.toggle('open', !open);
-  if(arr) arr.innerHTML = open ? '&#9660;' : '&#9650;';
-  if(!open) {
-    if(!document.getElementById('invoiceDueDate').value) {
-      var d = new Date(); d.setDate(d.getDate()+30);
-      document.getElementById('invoiceDueDate').value = d.toISOString().split('T')[0];
-    }
-    if(!document.getElementById('invoiceNum').value) {
-      var d2 = new Date();
-      document.getElementById('invoiceNum').value = 'INV-'+d2.getFullYear().toString().slice(2)+String(d2.getMonth()+1).padStart(2,'0')+String(d2.getDate()).padStart(2,'0')+'-'+Math.floor(Math.random()*900+100);
-    }
-  }
-}
-function toggleEmailPanel(<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
