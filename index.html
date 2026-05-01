@@ -1977,16 +1977,8 @@ body {
       </div>
 
       <!-- Invoice Panel -->
-      <div class="invoice-section">
-        <button class="invoice-toggle-bar" onclick="toggleInvoicePanel(this)">
-          <span>&#129534; Generate Invoice</span>
-          <span id="invPanelArr">&#9660;</span>
-        </button>
-        <div class="invoice-panel" id="invoicePanel">
-          <div class="status-toggle">
-            <div class="status-btn unpaid active" id="statusUnpaid" onclick="setInvoiceStatus('unpaid',this)">&#9203; Unpaid</div>
-            <div class="status-btn paid" id="statusPaid" onclick="setInvoiceStatus('paid',this)">&#9989; Paid</div>
-          </div>
+      
+    </div>
           <div class="field-row">
             <div class="field"><label>Invoice #</label><input type="text" id="invoiceNum" placeholder="Auto-generated"></div>
             <div class="field"><label>Due Date</label><input type="date" id="invoiceDueDate"></div>
@@ -2057,8 +2049,124 @@ body {
     <div class="page-hdr-left"><h1>Invoices</h1><p>Track payments — mark paid to auto-generate receipt</p></div>
     <div class="page-hdr-right">
       <button class="btn btn-secondary" onclick="exportInvoices()">&#8595; Export CSV</button>
+      <button class="btn btn-primary" onclick="openCreateInvoicePanel()">+ Standalone Invoice</button>
     </div>
   </div>
+
+  <!-- Standalone Invoice Creator (hidden by default) -->
+  <div id="standaloneInvPanel" style="display:none;margin-bottom:24px;">
+    <div class="panel" style="margin-bottom:0;">
+      <div class="panel-header">
+        <span class="panel-num">&#129534;</span>
+        <span class="panel-title">Create Standalone Invoice</span>
+        <button class="btn btn-ghost btn-sm" onclick="closeCreateInvoicePanel()" style="margin-left:auto;">&#215; Close</button>
+      </div>
+      <div class="panel-body">
+        <div class="field-row">
+          <div class="field"><label>Customer Name</label>
+            <div class="cust-search-wrap">
+              <input type="text" id="siCustName" placeholder="Search or type customer name..." autocomplete="off"
+                oninput="onSiCustSearch(this.value)" onfocus="onSiCustSearch(this.value)"
+                onblur="setTimeout(function(){var d=document.getElementById('siCustDropdown');if(d)d.classList.remove('open');},200)">
+              <div id="siCustDropdown" class="cust-dropdown"></div>
+            </div>
+          </div>
+          <div class="field"><label>Invoice #</label>
+            <input type="text" id="siInvNum" placeholder="Auto-generated on save">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Email</label><input type="email" id="siEmail" placeholder="customer@example.com"></div>
+          <div class="field"><label>Phone</label><input type="tel" id="siPhone" placeholder="(416) 555-0100"></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Service / Description</label>
+            <select id="siService">
+              <option value="delivery">Delivery / Freight</option>
+              <option value="ecommerce">E-Commerce Services</option>
+              <option value="web">Web Design &amp; Development</option>
+              <option value="fulfillment">Fulfillment</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="field"><label>Due Date</label><input type="date" id="siDueDate"></div>
+        </div>
+        <div class="field-row single">
+          <div class="field"><label>Description / Notes</label>
+            <textarea id="siNotes" placeholder="Invoice description, service details..."></textarea>
+          </div>
+        </div>
+
+        <!-- Line items -->
+        <div style="margin-bottom:12px;">
+          <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--t3);margin-bottom:8px;">Line Items</div>
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr>
+                <th style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--t3);padding:6px 8px;border-bottom:1px solid var(--bdr);text-align:left;">Description</th>
+                <th style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--t3);padding:6px 8px;border-bottom:1px solid var(--bdr);text-align:right;width:100px;">Price</th>
+                <th style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--t3);padding:6px 8px;border-bottom:1px solid var(--bdr);text-align:center;width:60px;">Qty</th>
+                <th style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--t3);padding:6px 8px;border-bottom:1px solid var(--bdr);text-align:right;width:100px;">Total</th>
+                <th style="width:36px;"></th>
+              </tr>
+            </thead>
+            <tbody id="siLineItems"></tbody>
+          </table>
+          <button onclick="addSiLineItem()" style="width:100%;margin-top:6px;background:none;border:1px dashed var(--bdr);color:var(--t3);padding:8px;font-size:12px;cursor:pointer;border-radius:2px;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='var(--bdr)';this.style.color='var(--t3)'">+ Add Line Item</button>
+        </div>
+
+        <!-- Totals -->
+        <div style="background:var(--s2);border-radius:2px;padding:14px;margin-bottom:14px;">
+          <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;color:var(--t2);">
+            <span>Subtotal</span><span id="siSubtotal">$0.00</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:13px;color:var(--t2);">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;text-transform:none;letter-spacing:0;font-size:13px;font-weight:400;">
+              <input type="checkbox" id="siHstExempt" onchange="calcSiTotals()" style="width:14px;height:14px;accent-color:var(--red);">
+              HST/GST Exempt
+            </label>
+            <span id="siHst">$0.00</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding:8px 0 4px;font-size:16px;font-weight:700;border-top:1px solid var(--bdr);margin-top:4px;">
+            <span>Total</span><span id="siTotal" style="color:var(--text);">$0.00</span>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-primary" style="flex:1;" onclick="saveSiInvoice()">&#128190; Save Invoice</button>
+          <button class="btn btn-gold" style="flex:1;" onclick="saveSiInvoice(true)">&#129534; Save &amp; Generate PDF</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Invoice email panel -->
+    <div class="email-preview" id="siEmailPreview" style="margin-top:10px;">
+      <div class="email-preview-head">
+        <span>&#128139; Invoice Email Draft</span>
+      </div>
+      <div class="email-preview-body" style="padding:14px;">
+        <div class="email-field">
+          <label>To</label>
+          <input type="email" id="siEmailTo" placeholder="customer@example.com">
+        </div>
+        <div class="email-field">
+          <label>Subject</label>
+          <input type="text" id="siEmailSubj" value="Invoice from Khair Group">
+        </div>
+        <div class="email-field">
+          <label>Body Preview</label>
+          <div class="email-body-preview" id="siEmailBody" style="font-family:monospace;font-size:11px;background:var(--s1);border:1px solid var(--bdr);padding:10px;border-radius:2px;white-space:pre-wrap;line-height:1.6;max-height:200px;overflow-y:auto;color:var(--t2);"></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button class="btn btn-primary" onclick="openSiMailClient()" style="flex:1;">Open in Mail App</button>
+          <button class="btn btn-secondary" onclick="copySiEmailBody()" id="siCopyEmailBtn">Copy Body</button>
+        </div>
+        <div style="font-size:10px;color:var(--t3);margin-top:6px;">Attach the invoice PDF manually before sending.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Invoices table -->
   <div class="table-wrap">
     <div class="table-toolbar">
       <input class="search-input" placeholder="Search invoices..." oninput="filterInvoices(this.value)" style="width:200px;">
@@ -2410,7 +2518,10 @@ document.addEventListener('click', function(e) {
     case 'deleteCust':       deleteCust(id); break;
     case 'convertToInvoice': convertToInvoice(id); break;
     case 'dispatchQuote':    dispatchQuote(id); break;
+    case 'downloadQuotePDF': downloadQuotePDF(id); break;
     case 'deleteQuote':      deleteQuote(id); break;
+    case 'downloadQuotePDF': downloadQuotePDF(id); break;
+    case 'downloadQuotePDF': downloadQuotePDF(id); break;
     case 'markPaid':         markPaid(id); break;
     case 'genSavedInvPDF':   genSavedInvPDF(id); break;
     case 'deleteInvoice':    deleteInvoice(id); break;
@@ -2806,38 +2917,38 @@ function recalc() {
   if(refEl) refEl.textContent = (document.getElementById('quoteRef')||{}).value || '';
 }
 function generatePDF() {
-  const { jsPDF } = window.jspdf;
-  const q          = calcQuote();
-  const ref        = generateQuoteRef();
-  const today      = new Date();
-  const validUntil = new Date(today.getTime() + v('validDays') * 86400000);
-  const dateFmt    = d => d.toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'});
+  var { jsPDF } = window.jspdf;
+  var q          = calcQuote();
+  var ref        = generateQuoteRef();
+  var today      = new Date();
+  var validUntil = new Date(today.getTime() + v('validDays') * 86400000);
+  var dateFmt = function(d){ return d.toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'}); };
 
-  const company   = g('companyName').value || 'Khair Group';
-  const custName  = g('custName').value    || 'Valued Customer';
-  const custPhone = (g('custPhone').value  || '').replace(/\s+/g,' ').trim();
-  const custEmail = g('custEmail').value   || '';
-  const custAddr  = g('custAddr') ? (g('custAddr').value||'') : '';
+  var company   = g('companyName').value || 'Khair Group';
+  var custName  = g('custName').value    || 'Valued Customer';
+  var custPhone = (g('custPhone').value  || '').replace(/\s+/g,' ').trim();
+  var custEmail = g('custEmail').value   || '';
+  var custAddr  = g('custAddr') ? (g('custAddr').value||'') : '';
 
-  const doc = new jsPDF({ unit:'pt', format:'letter', orientation:'portrait' });
-  const PL=62, PR=590, PB=748;
+  var doc = new jsPDF({ unit:'pt', format:'letter', orientation:'portrait' });
+  var PL=62, PR=590, PB=748;
 
-  const sf=(r,g2,b)=>doc.setFillColor(r,g2,b);
-  const ss=(r,g2,b)=>doc.setDrawColor(r,g2,b);
-  const st=(r,g2,b)=>doc.setTextColor(r,g2,b);
-  const RED=[204,31,31],BLK=[15,15,15],MGR=[120,120,120],
+  var sf=(r,g2,b)=>doc.setFillColor(r,g2,b);
+  var ss=(r,g2,b)=>doc.setDrawColor(r,g2,b);
+  var st=(r,g2,b)=>doc.setTextColor(r,g2,b);
+  var RED=[204,31,31],BLK=[15,15,15],MGR=[120,120,120],
         DGR=[50,50,50],LGR=[220,220,220],WHT=[255,255,255],VLG=[245,245,245];
 
-  const cell=(x,y,w,h,fill)=>{
+  var cell=(x,y,w,h,fill)=>{
     if(fill){sf(...fill);doc.rect(x,y,w,h,'F');}
     ss(...LGR);doc.setLineWidth(0.4);
     doc.line(x,y,x+w,y);doc.line(x+w,y,x+w,y+h);
     doc.line(x+w,y+h,x,y+h);doc.line(x,y+h,x,y);
   };
-  const ctxt=(txt,x,w,y,h,aln,bold,sz,col)=>{
+  var ctxt=(txt,x,w,y,h,aln,bold,sz,col)=>{
     doc.setFont('helvetica',bold?'bold':'normal');
     doc.setFontSize(sz||8.5);st(...(col||BLK));
-    const ty=y+h*0.65;
+    var ty=y+h*0.65;
     if(aln==='left')       doc.text(String(txt),x+4,ty);
     else if(aln==='center')   doc.text(String(txt),x+w/2,ty,{align:'center'});
     else                   doc.text(String(txt),x+w-4,ty,{align:'right'});
@@ -2856,7 +2967,7 @@ function generatePDF() {
     .forEach((line,i)=>doc.text(line,PL,132+i*13));
 
   // META BOX
-  const mx=326,my=62,rmh=17,pad=7,bh=3*rmh+pad*2;
+  var mx=326,my=62,rmh=17,pad=7,bh=3*rmh+pad*2;
   sf(...VLG);doc.rect(mx,my,PR-mx,bh,'F');
   ss(...LGR);doc.setLineWidth(0.5);
   doc.line(mx,my,PR,my);doc.line(PR,my,PR,my+bh);
@@ -2864,68 +2975,68 @@ function generatePDF() {
   sf(...RED);doc.rect(mx,my,3,bh,'F');
   [['DATE:',dateFmt(today)],['QUOTE #:',ref],['VALID TILL:',dateFmt(validUntil)]]
     .forEach(([lbl,val],i)=>{
-      const ry=my+pad+i*rmh+rmh*0.65;
+      var ry=my+pad+i*rmh+rmh*0.65;
       doc.setFont('helvetica','bold');doc.setFontSize(8.5);st(...BLK);doc.text(lbl,mx+10,ry);
       doc.setFont('helvetica','normal');doc.text(val,PR-6,ry,{align:'right'});
     });
 
   // CLIENT BLOCK
-  const cx=326,vx=396;
-  let clY=my+bh+22;
-  const contact = custPhone || custEmail || '\u2014';
-  const clientRows=[['Name',custName]];
+  var cx=326,vx=396;
+  var clY=my+bh+22;
+  var contact = custPhone || custEmail || '\u2014';
+  var clientRows=[['Name',custName]];
   if(custAddr) clientRows.push(['Address',custAddr]);
   clientRows.push(['Contact',contact]);
   clientRows.forEach(([lbl,val])=>{
     doc.setFont('helvetica','bold');doc.setFontSize(8.5);st(...BLK);doc.text(lbl,cx,clY);
     doc.setFont('helvetica','normal');
-    const lines=doc.splitTextToSize(val,PR-vx);
+    var lines=doc.splitTextToSize(val,PR-vx);
     lines.forEach((ln,i)=>doc.text(ln,vx,clY+i*13));
     clY+=14*Math.max(1,lines.length);
   });
 
   // TABLE — no red separator line above
-  const TT=238;
-  const cX=[PL,330,424,492,PR];
-  const cW=[cX[1]-cX[0],cX[2]-cX[1],cX[3]-cX[2],cX[4]-cX[3]];
-  const hdrs=['DESCRIPTION','PRICE','QTY','AMOUNT'];
-  const alns=['left','center','center','right'];
-  const RH=20,HH=22,NR=10;
+  var TT=238;
+  var cX=[PL,330,424,492,PR];
+  var cW=[cX[1]-cX[0],cX[2]-cX[1],cX[3]-cX[2],cX[4]-cX[3]];
+  var hdrs=['DESCRIPTION','PRICE','QTY','AMOUNT'];
+  var alns=['left','center','center','right'];
+  var RH=20,HH=22,NR=10;
 
   hdrs.forEach((h,i)=>{cell(cX[i],TT,cW[i],HH,LGR);ctxt(h,cX[i],cW[i],TT,HH,alns[i],true,8);});
 
-  const addrA=g('addrA').value||'Location A';
-  const addrB=g('addrB').value||'Location B';
-  const delivAmt=q.base+q.distCost+q.fuelCostTotal+q.labourCost;
-  const descColW=cX[1]-cX[0]-8;
+  var addrA=g('addrA').value||'Location A';
+  var addrB=g('addrB').value||'Location B';
+  var delivAmt=q.base+q.distCost+q.fuelCostTotal+q.labourCost;
+  var descColW=cX[1]-cX[0]-8;
   doc.setFontSize(7.5);
-  const fromW=doc.splitTextToSize('From: '+addrA,descColW);
-  const toW=doc.splitTextToSize('To:   '+addrB,descColW);
-  const routeRH=RH+(fromW.length+toW.length)*9+4;
+  var fromW=doc.splitTextToSize('From: '+addrA,descColW);
+  var toW=doc.splitTextToSize('To:   '+addrB,descColW);
+  var routeRH=RH+(fromW.length+toW.length)*9+4;
 
-  const items=[
+  var items=[
     {isRoute:true,desc:'Pickup & Delivery ('+q.km.toFixed(0)+' km)',
      fromLines:fromW,toLines:toW,price:fmt(delivAmt),qty:'1',amount:fmt(delivAmt),height:routeRH},
     ...q.surchargeItems.map(([l,a])=>({isRoute:false,desc:l+' Surcharge',fromLines:[],toLines:[],
      price:fmt(a),qty:'1',amount:fmt(a),height:RH}))
   ];
 
-  let rowY=TT+HH,drawn=0;
-  for(let r=0;r<NR;r++){
-    const item=items[r];const thisH=item?item.height:RH;
+  var rowY=TT+HH,drawn=0;
+  for(var r=0;r<NR;r++){
+    var item=items[r];var thisH=item?item.height:RH;
     cW.forEach((_,i)=>cell(cX[i],rowY,cW[i],thisH));
     if(item){
       doc.setFont('helvetica','normal');doc.setFontSize(8.5);st(...BLK);
       doc.text(item.desc,cX[0]+4,rowY+13);
       if(item.isRoute){
         doc.setFontSize(7.5);st(...MGR);
-        let sy=rowY+23;
+        var sy=rowY+23;
         item.fromLines.forEach(ln=>{doc.text(ln,cX[0]+4,sy);sy+=9;});
         item.toLines.forEach(ln=>{doc.text(ln,cX[0]+4,sy);sy+=9;});
       }
       [[item.price,'center'],[item.qty,'center'],[item.amount,'right']].forEach(([val,aln],ci)=>{
         doc.setFont('helvetica','normal');doc.setFontSize(8.5);st(...BLK);
-        const ty=rowY+thisH*0.65;
+        var ty=rowY+thisH*0.65;
         if(aln==='center') doc.text(val,cX[ci+1]+cW[ci+1]/2,ty,{align:'center'});
         else               doc.text(val,cX[ci+1]+cW[ci+1]-4,ty,{align:'right'});
       });
@@ -2935,15 +3046,15 @@ function generatePDF() {
   while(drawn<NR){cW.forEach((_,i)=>cell(cX[i],rowY,cW[i],RH));rowY+=RH;drawn++;}
 
   // TOTALS
-  const TB=rowY;
-  const hstPct=q.hstExempt?0:13;
-  const hstLabel='HST/GST ('+hstPct+'%)';
+  var TB=rowY;
+  var hstPct=q.hstExempt?0:13;
+  var hstLabel='HST/GST ('+hstPct+'%)';
   [['TOTAL',fmt(q.subtotal),false],
    ['DISC.',q.discAmt>0?'- '+fmt(q.discAmt):'$0.00',false],
    [hstLabel,fmt(q.hstAmt),false],
    ['FINAL',fmt(q.total),true]]
     .forEach(([lbl,val,fin],i)=>{
-      const yt=TB+i*RH;const tc=fin?WHT:BLK;
+      var yt=TB+i*RH;var tc=fin?WHT:BLK;
       cell(cX[2],yt,cW[2],RH,fin?RED:LGR);
       cell(cX[3],yt,cW[3],RH,fin?RED:null);
       doc.setFont('helvetica','bold');doc.setFontSize(8);st(...tc);
@@ -2953,13 +3064,13 @@ function generatePDF() {
     });
 
   // CLOSING + TERMS
-  let tcY=TB+4*RH+16;
+  var tcY=TB+4*RH+16;
   doc.setFont('helvetica','bolditalic');doc.setFontSize(9);st(...RED);
   doc.text('We look forward to your business!',306,tcY,{align:'center'});tcY+=16;
 
   doc.setFont('helvetica','bold');doc.setFontSize(9);st(...BLK);
   doc.text('TERMS & CONDITIONS',PL,tcY);tcY+=13;
-  const terms=['Prices valid until '+dateFmt(validUntil)+'.',
+  var terms=['Prices valid until '+dateFmt(validUntil)+'.',
     'A 50% deposit is required to confirm and schedule the delivery.',
     'The remaining balance is due upon successful delivery.',
     'Fuel surcharges are estimated and may vary slightly at time of delivery.',
@@ -2983,41 +3094,41 @@ function generatePDF() {
            306,770,{align:'center'});
 
   doc.save('KG_Quote_'+ref+'.pdf');
-  const t=g('toast');t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);
+  var t=g('toast');t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);
 }
 function generateInvoice() {
-  const { jsPDF } = window.jspdf;
-  const q          = calcQuote();
-  const today      = new Date();
-  const dateFmt    = d => d.toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'});
+  var { jsPDF } = window.jspdf;
+  var q          = calcQuote();
+  var today      = new Date();
+  var dateFmt = function(d){ return d.toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'}); };
 
-  const invoiceNum  = document.getElementById('invoiceNum').value || ('INV-'+Date.now());
-  const dueDateRaw  = document.getElementById('invoiceDueDate').value;
-  const dueDate     = dueDateRaw ? new Date(dueDateRaw+'T12:00:00') : new Date(today.getTime()+30*86400000);
-  const termsNote   = document.getElementById('invoiceTermsNote').value || 'Payment due within 30 days. Late payments subject to 5% fee.';
-  const payRef      = document.getElementById('invoicePayRef').value || 'khalid@khairgroup.ca';
-  const isPaid      = window._invoiceStatus === 'paid';
-  const quoteRef    = g('quoteRef').value || '';
+  var invoiceNum  = document.getElementById('invoiceNum').value || ('INV-'+Date.now());
+  var dueDateRaw  = document.getElementById('invoiceDueDate').value;
+  var dueDate     = dueDateRaw ? new Date(dueDateRaw+'T12:00:00') : new Date(today.getTime()+30*86400000);
+  var termsNote   = document.getElementById('invoiceTermsNote').value || 'Payment due within 30 days. Late payments subject to 5% fee.';
+  var payRef      = document.getElementById('invoicePayRef').value || 'khalid@khairgroup.ca';
+  var isPaid      = window._invoiceStatus === 'paid';
+  var quoteRef    = g('quoteRef').value || '';
 
-  const company   = g('companyName').value || 'Khair Group';
-  const custName  = g('custName').value    || 'Valued Customer';
+  var company   = g('companyName').value || 'Khair Group';
+  var custName  = g('custName').value    || 'Valued Customer';
   // Clean phone — remove any characters that cause jsPDF spacing issues
-  const custPhone = (g('custPhone').value || '').replace(/[^\d\s\(\)\+\-]/g,'').trim();
-  const custEmail = g('custEmail').value   || '';
-  const custAddr  = g('custAddr') ? (g('custAddr').value||'') : '';
+  var custPhone = (g('custPhone').value || '').replace(/[^\d\s\(\)\+\-]/g,'').trim();
+  var custEmail = g('custEmail').value   || '';
+  var custAddr  = g('custAddr') ? (g('custAddr').value||'') : '';
 
-  const doc = new jsPDF({ unit:'pt', format:'letter', orientation:'portrait' });
-  const PL=62, PR=590, PB=748;
+  var doc = new jsPDF({ unit:'pt', format:'letter', orientation:'portrait' });
+  var PL=62, PR=590, PB=748;
 
-  const sf=(r,g2,b)=>doc.setFillColor(r,g2,b);
-  const ss=(r,g2,b)=>doc.setDrawColor(r,g2,b);
-  const st=(r,g2,b)=>doc.setTextColor(r,g2,b);
-  const RED=[204,31,31],BLK=[15,15,15],MGR=[120,120,120],
+  var sf=(r,g2,b)=>doc.setFillColor(r,g2,b);
+  var ss=(r,g2,b)=>doc.setDrawColor(r,g2,b);
+  var st=(r,g2,b)=>doc.setTextColor(r,g2,b);
+  var RED=[204,31,31],BLK=[15,15,15],MGR=[120,120,120],
         DGR=[50,50,50],LGR=[220,220,220],WHT=[255,255,255],
         VLG=[245,245,245],GOLD=[230,168,23],
         GREEN=[44,130,60],ORANGE=[200,80,0];
 
-  const cell=(x,y,w,h,fill)=>{
+  var cell=(x,y,w,h,fill)=>{
     if(fill){sf(...fill);doc.rect(x,y,w,h,'F');}
     // Draw border as explicit lines to avoid jsPDF diagonal line artifact
     ss(...LGR);doc.setLineWidth(0.4);
@@ -3026,10 +3137,10 @@ function generateInvoice() {
     doc.line(x+w,y+h,x,y+h);   // bottom
     doc.line(x,y+h,x,y);       // left
   };
-  const ctxt=(txt,x,w,y,h,aln,bold,sz,col)=>{
+  var ctxt=(txt,x,w,y,h,aln,bold,sz,col)=>{
     doc.setFont('helvetica',bold?'bold':'normal');
     doc.setFontSize(sz||8.5);st(...(col||BLK));
-    const ty=y+h*0.65;
+    var ty=y+h*0.65;
     if(aln==='left')       doc.text(String(txt),x+4,ty);
     else if(aln==='center') doc.text(String(txt),x+w/2,ty,{align:'center'});
     else                   doc.text(String(txt),x+w-4,ty,{align:'right'});
@@ -3048,78 +3159,78 @@ function generateInvoice() {
     .forEach((line,i)=>doc.text(line,PL,132+i*13));
 
   // META BOX (gold accent)
-  const mx=326,my=68,rmh=15,pad=6;
-  const metaRows=[['INVOICE #:',invoiceNum],['DATE:',dateFmt(today)],['DUE DATE:',dateFmt(dueDate)]];
+  var mx=326,my=68,rmh=15,pad=6;
+  var metaRows=[['INVOICE #:',invoiceNum],['DATE:',dateFmt(today)],['DUE DATE:',dateFmt(dueDate)]];
   if(quoteRef) metaRows.push(['QUOTE REF:',quoteRef]);
-  const bh=metaRows.length*rmh+pad*2;
+  var bh=metaRows.length*rmh+pad*2;
   sf(...VLG);doc.rect(mx,my,PR-mx,bh,'F');
   ss(...LGR);doc.setLineWidth(0.5);
   doc.line(mx,my,PR,my);doc.line(PR,my,PR,my+bh);
   doc.line(PR,my+bh,mx,my+bh);doc.line(mx,my+bh,mx,my);
   sf(...GOLD);doc.rect(mx,my,3,bh,'F');
   metaRows.forEach(([lbl,val],i)=>{
-    const ry=my+pad+i*rmh+rmh*0.65;
+    var ry=my+pad+i*rmh+rmh*0.65;
     doc.setFont('helvetica','bold');doc.setFontSize(8);st(...BLK);doc.text(lbl,mx+10,ry);
     doc.setFont('helvetica','normal');doc.text(val,PR-6,ry,{align:'right'});
   });
 
   // CLIENT BLOCK
-  const cx=326,vx=396;
-  let clY=my+bh+16;
-  const contact=custPhone||custEmail||'\u2014';
-  const clientRows=[['Bill To',custName]];
+  var cx=326,vx=396;
+  var clY=my+bh+16;
+  var contact=custPhone||custEmail||'\u2014';
+  var clientRows=[['Bill To',custName]];
   if(custAddr) clientRows.push(['Address',custAddr]);
   clientRows.push(['Contact',contact]);
   clientRows.forEach(([lbl,val])=>{
     doc.setFont('helvetica','bold');doc.setFontSize(8.5);st(...BLK);doc.text(lbl,cx,clY);
     doc.setFont('helvetica','normal');
-    const lines=doc.splitTextToSize(val,PR-vx);
+    var lines=doc.splitTextToSize(val,PR-vx);
     lines.forEach((ln,i)=>doc.text(ln,vx,clY+i*13));
     clY+=14*Math.max(1,lines.length);
   });
 
   // TABLE — no red line above
-  const TT=Math.max(clY+14,238);
-  const cX=[PL,330,424,492,PR];
-  const cW=[cX[1]-cX[0],cX[2]-cX[1],cX[3]-cX[2],cX[4]-cX[3]];
-  const hdrs=['DESCRIPTION','PRICE','QTY','AMOUNT'];
-  const alns=['left','center','center','right'];
-  const RH=20,HH=22,NR=10;
+  var TT=Math.max(clY+14,238);
+  var cX=[PL,330,424,492,PR];
+  var cW=[cX[1]-cX[0],cX[2]-cX[1],cX[3]-cX[2],cX[4]-cX[3]];
+  var hdrs=['DESCRIPTION','PRICE','QTY','AMOUNT'];
+  var alns=['left','center','center','right'];
+  var RH=20,HH=22,NR=10;
 
   hdrs.forEach((h,i)=>{cell(cX[i],TT,cW[i],HH,LGR);ctxt(h,cX[i],cW[i],TT,HH,alns[i],true,8);});
 
-  const addrA=g('addrA').value||'Location A';
-  const addrB=g('addrB').value||'Location B';
-  const delivAmt=q.base+q.distCost+q.fuelCostTotal+q.labourCost;
-  const descColW=cX[1]-cX[0]-8;
+  var addrA=g('addrA').value||'Location A';
+  var addrB=g('addrB').value||'Location B';
+  var delivAmt=q.base+q.distCost+q.fuelCostTotal+q.labourCost;
+  var descColW=cX[1]-cX[0]-8;
   doc.setFontSize(7.5);
-  const fromW=doc.splitTextToSize('From: '+addrA,descColW);
-  const toW=doc.splitTextToSize('To:   '+addrB,descColW);
-  const routeRH=RH+(fromW.length+toW.length)*9+4;
+  var fromW=doc.splitTextToSize('From: '+addrA,descColW);
+  var toW=doc.splitTextToSize('To:   '+addrB,descColW);
+  var routeRH=RH+(fromW.length+toW.length)*9+4;
 
-  const items=[
+  var items=[
     {isRoute:true,desc:'Pickup & Delivery ('+q.km.toFixed(0)+' km)',
      fromLines:fromW,toLines:toW,price:fmt(delivAmt),qty:'1',amount:fmt(delivAmt),height:routeRH},
     ...q.surchargeItems.map(([l,a])=>({isRoute:false,desc:l+' Surcharge',fromLines:[],toLines:[],
      price:fmt(a),qty:'1',amount:fmt(a),height:RH}))
   ];
 
-  let rowY=TT+HH,drawn=0;
-  for(let r=0;r<NR;r++){
-    const item=items[r];const thisH=item?item.height:RH;
+  var rowY=TT+HH,drawn=0;
+  for(var r=0;r<NR;r++){
+    var item=items[r];var thisH=item?item.height:RH;
     cW.forEach((_,i)=>cell(cX[i],rowY,cW[i],thisH));
     if(item){
       doc.setFont('helvetica','normal');doc.setFontSize(8.5);st(...BLK);
       doc.text(item.desc,cX[0]+4,rowY+13);
       if(item.isRoute){
         doc.setFontSize(7.5);st(...MGR);
-        let sy=rowY+23;
+        var sy=rowY+23;
         item.fromLines.forEach(ln=>{doc.text(ln,cX[0]+4,sy);sy+=9;});
         item.toLines.forEach(ln=>{doc.text(ln,cX[0]+4,sy);sy+=9;});
       }
       [[item.price,'center'],[item.qty,'center'],[item.amount,'right']].forEach(([val,aln],ci)=>{
         doc.setFont('helvetica','normal');doc.setFontSize(8.5);st(...BLK);
-        const ty=rowY+thisH*0.65;
+        var ty=rowY+thisH*0.65;
         if(aln==='center') doc.text(val,cX[ci+1]+cW[ci+1]/2,ty,{align:'center'});
         else               doc.text(val,cX[ci+1]+cW[ci+1]-4,ty,{align:'right'});
       });
@@ -3130,8 +3241,8 @@ function generateInvoice() {
 
   // ── DIAGONAL WATERMARK STAMP ────────────────────
   {
-    const stampCX = (PL + PR) / 2;
-    const stampCY = (TT + rowY) / 2;
+    var stampCX = (PL + PR) / 2;
+    var stampCY = (TT + rowY) / 2;
     doc.saveGraphicsState();
     doc.setFont('helvetica','bold');
     if(isPaid){
@@ -3151,15 +3262,15 @@ function generateInvoice() {
   }
 
   // TOTALS
-  const TB=rowY;
-  const hstPct=q.hstExempt?0:13;
-  const hstLabel='HST/GST ('+hstPct+'%)';
+  var TB=rowY;
+  var hstPct=q.hstExempt?0:13;
+  var hstLabel='HST/GST ('+hstPct+'%)';
   [['TOTAL',fmt(q.subtotal),false],
    ['DISC.',q.discAmt>0?'- '+fmt(q.discAmt):'$0.00',false],
    [hstLabel,fmt(q.hstAmt),false],
    ['FINAL',fmt(q.total),true]]
     .forEach(([lbl,val,fin],i)=>{
-      const yt=TB+i*RH;const tc=fin?WHT:BLK;
+      var yt=TB+i*RH;var tc=fin?WHT:BLK;
       cell(cX[2],yt,cW[2],RH,fin?RED:LGR);
       cell(cX[3],yt,cW[3],RH,fin?RED:null);
       doc.setFont('helvetica','bold');doc.setFontSize(8);st(...tc);
@@ -3169,12 +3280,12 @@ function generateInvoice() {
     });
 
   // PAYMENT STATUS BOX (below totals, above terms)
-  let infoY=TB+4*RH+14;
-  const methodLabels={etransfer:'E-Transfer',bank:'Bank Transfer',credit:'Credit Card',
+  var infoY=TB+4*RH+14;
+  var methodLabels={etransfer:'E-Transfer',bank:'Bank Transfer',credit:'Credit Card',
                       cash:'Cash',cheque:'Cheque',prepaid:'Full Payment Prepaid'};
-  const activeMethods=Object.entries(window._payMethods)
+  var activeMethods=Object.entries(window._payMethods)
     .filter(([,v])=>v).map(([k])=>methodLabels[k]).join('  |  ');
-  const boxH=isPaid?24:46;
+  var boxH=isPaid?24:46;
 
   if(infoY+boxH < PB){
     sf(...VLG);doc.rect(PL,infoY,PR-PL,boxH,'F');
@@ -3201,7 +3312,7 @@ function generateInvoice() {
   doc.setFont('helvetica','bold');doc.setFontSize(9);st(...BLK);
   doc.text('TERMS & CONDITIONS',PL,infoY);infoY+=13;
   doc.setFont('helvetica','normal');doc.setFontSize(7.5);st(...DGR);
-  const invTerms=[termsNote,
+  var invTerms=[termsNote,
     'All payments via e-transfer, bank transfer, or credit card.',
     'E-Transfer ID: '+payRef,
     isPaid?'This document serves as an official receipt of payment.':
@@ -3228,28 +3339,28 @@ function generateInvoice() {
            306,770,{align:'center'});
 
   doc.save('KG_Invoice_'+invoiceNum+'.pdf');
-  const t=document.getElementById('invoiceToast');
+  var t=document.getElementById('invoiceToast');
   t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);
 }
 function buildEmailBody() {
-  const q         = calcQuote();
-  const ref       = g('quoteRef').value    || generateQuoteRef();
-  const today     = new Date();
-  const validUntil= new Date(today.getTime() + v('validDays') * 86400000);
-  const dateFmt   = d => d.toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'});
-  const company   = g('companyName').value || 'Khair Group';
-  const phone     = g('companyPhone').value|| '(647) 709-4052';
-  const emailAddr = g('companyEmail').value|| 'quotes@khairgroup.ca';
-  const custName  = g('custName').value    || 'Valued Customer';
-  const addrA     = g('addrA').value       || 'pickup location';
-  const addrB     = g('addrB').value       || 'dropoff location';
-  const hstPct    = q.hstExempt ? '0' : '13';
+  var q         = calcQuote();
+  var ref       = g('quoteRef').value    || generateQuoteRef();
+  var today     = new Date();
+  var validUntil= new Date(today.getTime() + v('validDays') * 86400000);
+  var dateFmt = function(d){ return d.toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'}); };
+  var company   = g('companyName').value || 'Khair Group';
+  var phone     = g('companyPhone').value|| '(647) 709-4052';
+  var emailAddr = g('companyEmail').value|| 'quotes@khairgroup.ca';
+  var custName  = g('custName').value    || 'Valued Customer';
+  var addrA     = g('addrA').value       || 'pickup location';
+  var addrB     = g('addrB').value       || 'dropoff location';
+  var hstPct    = q.hstExempt ? '0' : '13';
 
-  const surchargeLines = q.surchargeItems.length > 0
+  var surchargeLines = q.surchargeItems.length > 0
     ? q.surchargeItems.map(function(item){ return item[0].padEnd(18)+'  '+fmt(item[1]); }).join('\n')
     : '';
 
-  const lines = [
+  var lines = [
     'Dear ' + custName + ',',
     '',
     'Thank you for choosing Khair Group. Please find below your delivery quote as requested.',
@@ -3325,6 +3436,10 @@ async function saveQuoteToPortal() {
   showToast('Quote '+ref+' saved','ok');await loadQuotes();updateBadges();
 }
 
+
+function generateAndEmail() {
+  generatePDF();
+}
 function toggleEmailPanel() {
   var p = document.getElementById('emailPreview');
   if(!p) return;
@@ -3386,6 +3501,7 @@ function renderQuotes(data) {
       '<td style="font-size:11px;color:var(--t2);">'+escHtml(q.valid_till||'')+'</td>'+
       '<td>'+mkBadge(q.status)+'</td>'+
       '<td><div style="display:flex;gap:4px;flex-wrap:wrap;">'+
+        '<button class="btn btn-secondary btn-sm" data-fn="downloadQuotePDF" data-id="'+q.id+'">&#128196; PDF</button>'+
         '<button class="btn btn-gold btn-sm" data-fn="convertToInvoice" data-id="'+q.id+'">&rarr; Invoice</button>'+
         '<button class="btn btn-blue btn-sm" data-fn="dispatchQuote" data-id="'+q.id+'">&#128663; Dispatch</button>'+
         '<button class="btn btn-secondary btn-sm" data-fn="deleteQuote" data-id="'+q.id+'">&#128465;</button>'+
@@ -3471,19 +3587,34 @@ async function markPaid(id) {
   await genSavedInvPDF(id);
 }
 async function genSavedInvPDF(id) {
-  await loadInvoices();
-  var inv=DB.invoices.find(function(i){return i.id===id;});if(!inv)return;
-  if(g('custName'))g('custName').value=inv.customer_name||'';
-  if(g('custPhone'))g('custPhone').value=inv.customer_phone||'';
-  if(g('custEmail'))g('custEmail').value=inv.customer_email||'';
-  if(g('custAddr'))g('custAddr').value=inv.customer_address||'';
-  if(g('addrA'))g('addrA').value=inv.pickup_address||'';
-  if(g('addrB'))g('addrB').value=inv.dropoff_address||'';
-  if(g('invoiceNum'))g('invoiceNum').value=inv.invoice_num;
-  if(g('invoiceDueDate'))g('invoiceDueDate').value=inv.due_date||'';
-  window._invoiceStatus=inv.status==='paid'?'paid':'unpaid';
-  showToast('Generating PDF...','info');
-  setTimeout(function(){generateInvoice();},400);
+  var inv = DB.invoices.find(function(i){ return i.id === id; });
+  if(!inv) { showToast('Invoice not found','err'); return; }
+  // Fill shipping page fields with invoice data so generateInvoice works
+  var setV = function(id, val){ var el = document.getElementById(id); if(el) el.value = val||''; };
+  setV('custName',    inv.customer_name);
+  setV('custEmail',   inv.customer_email);
+  setV('custPhone',   inv.customer_phone);
+  setV('custAddr',    inv.customer_address);
+  setV('addrA',       inv.pickup_address);
+  setV('addrB',       inv.dropoff_address);
+  setV('invoiceNum',  inv.invoice_num);
+  setV('invoiceDueDate', inv.due_date);
+  setV('invoiceTermsNote', 'Payment due within 30 days. Late payments subject to 5% fee.');
+  // Set invoice status
+  window._invoiceStatus = inv.status === 'paid' ? 'paid' : 'unpaid';
+  var unpaidBtn = document.getElementById('statusUnpaid');
+  var paidBtn   = document.getElementById('statusPaid');
+  if(unpaidBtn) { unpaidBtn.classList.toggle('active', inv.status !== 'paid'); }
+  if(paidBtn)   { paidBtn.classList.toggle('active',   inv.status === 'paid'); }
+  // Set payment methods default
+  window._payMethods = {etransfer:true, bank:true, credit:true, cash:false, cheque:false, prepaid:false};
+  // Recalc based on saved data — use items if available
+  if(inv.items) {
+    var items = typeof inv.items === 'string' ? JSON.parse(inv.items) : inv.items;
+    // We'll use the total directly
+  }
+  showToast('Generating invoice PDF...','inf');
+  setTimeout(function(){ generateInvoice(); }, 300);
 }
 async function deleteInvoice(id){if(!confirm('Delete?'))return;var inv=DB.invoices.find(function(i){return i.id===id;});await sb.from('invoices').delete().eq('id',id);if(inv&&inv.customer_id)await updCustStats(inv.customer_id);showToast('Deleted','info');await loadInvoices();updateDashboard();updateBadges();}
 async function updCustStats(custId){if(!custId)return;var ir=await sb.from('invoices').select('total,status').eq('customer_id',custId);var qr=await sb.from('quotes').select('id').eq('customer_id',custId);var rev=(ir.data||[]).filter(function(i){return i.status==='paid';}).reduce(function(s,i){return s+(+i.total||0);},0);await sb.from('customers').update({total_revenue:rev,invoice_count:(ir.data||[]).length,quote_count:(qr.data||[]).length}).eq('id',custId);}
@@ -3616,7 +3747,12 @@ function escHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt
 var driverState = {
   jobId: null, quoteId: null, customerId: null,
   customerName: '', pickupAddress: '', dropoffAddress: '',
-  vehicle: '', odoStart: 0, jobLoaded: false
+  vehicle: '', odoStart: 0, jobLoaded: false,
+  // BOL data stored per stop
+  bolStore: {
+    pickup:  { ref:'', receiver:'', desc:'', weight:'', pieces:'', sigData:null, photos:[], timestamp:null, signed:false },
+    dropoff: { ref:'', receiver:'', desc:'', weight:'', pieces:'', sigData:null, photos:[], timestamp:null, signed:false }
+  }
 };
 
 // Called when dispatcher selects a quote from the dropdown
@@ -3887,50 +4023,78 @@ function markDeliveryComplete() {
 }
 
 function submitBOL() {
-  var name  = ((document.getElementById('b-rname')||{}).value||'').trim();
-  var email = ((document.getElementById('b-remail')||{}).value||'').trim();
-  var ref   = ((document.getElementById('b-ref')||{}).value||'') || ('BOL-' + Date.now());
+  var name  = ((document.getElementById('bol-receiver')||{}).value||'').trim();
+  var ref   = ((document.getElementById('bol-ref')||{}).value||'') || ('BOL-' + Date.now());
   if(!name)  { alert('Please enter the receiver name.'); return; }
-  if(!state.hasSig) { alert('Please capture the recipient signature first.'); return; }
 
-  var bolData = {
-    ref: ref,
-    receiver: name,
-    receiverEmail: email,
-    timestamp: new Date().toISOString(),
-    quoteId: driverState.quoteId||'',
-    vehicle: driverState.vehicle||''
+  // Check signature
+  if(!bolSigCanvas) { alert('Signature pad not ready.'); return; }
+  var px = bolSigCtx.getImageData(0,0,bolSigCanvas.width,bolSigCanvas.height).data;
+  var hasSig = false;
+  for(var idx=3; idx<px.length; idx+=4) { if(px[idx]>10){ hasSig=true; break; } }
+  if(!hasSig) { alert('Please capture the recipient signature before submitting.'); return; }
+
+  var sigData = bolSigCanvas.toDataURL('image/png');
+  var stopType = currentBOLStop ? currentBOLStop.type : 'pickup';
+  var ts = new Date().toISOString();
+
+  // Store everything in driverState.bolStore
+  if(!driverState.bolStore) driverState.bolStore = {};
+  driverState.bolStore[stopType] = {
+    ref:       ref,
+    receiver:  name,
+    desc:      ((document.getElementById('bol-desc')||{}).value||''),
+    weight:    ((document.getElementById('bol-weight')||{}).value||''),
+    pieces:    ((document.getElementById('bol-pieces')||{}).value||''),
+    shipper:   ((document.getElementById('bol-shipper')||{}).value||'Khair Group'),
+    shipperAddr: ((document.getElementById('bol-shipper-addr')||{}).value||''),
+    receiverAddr: ((document.getElementById('bol-receiver-addr')||{}).value||''),
+    sigData:   sigData,
+    photos:    bolCurrentPhotos.slice(),
+    timestamp: ts,
+    signed:    true
   };
-  state.bols.push(bolData);
+  bolCurrentPhotos = [];
 
-  // Save BOL ref to Supabase
-  if(sb && driverState.quoteId) {
-    var update = {updated_at: new Date().toISOString()};
-    // Use bol_pickup or bol_dropoff based on current stop
-    var activeStop = (state.stops||[]).find(function(s){ return s.status==='pending' || s.status==='current'; });
-    if(activeStop) {
-      activeStop.status = 'done';
-      activeStop.bol = ref;
-      if(activeStop.type === 'pickup') {
-        update.bol_pickup_ref = ref;
-        update.bol_pickup_signed = new Date().toISOString();
-      } else {
-        update.bol_dropoff_ref = ref;
-        update.bol_dropoff_signed = new Date().toISOString();
-      }
+  // Save refs to Supabase
+  if(sb && driverJob && driverJob.id) {
+    var update = { updated_at: ts };
+    if(stopType === 'pickup') {
+      update.bol_pickup_ref    = ref;
+      update.bol_pickup_signed = ts;
+    } else {
+      update.bol_dropoff_ref    = ref;
+      update.bol_dropoff_signed = ts;
     }
-    sb.from('quotes').update(update).eq('id', driverState.quoteId).then(function(){});
-    if(typeof renderStops==='function') renderStops();
+    sb.from('quotes').update(update).eq('id', driverJob.id).then(function(){});
   }
 
-  var allDone = (state.stops||[]).every(function(s){ return s.status==='done'; });
-  if(allDone) {
-    showToast('All stops signed! Tap Complete Delivery to finish.', 'ok');
-  } else {
-    showToast('BOL signed: ' + ref, 'ok');
+  // Update stop UI
+  var statusEl = document.getElementById('stop-'+currentBOLStop.id+'-status');
+  if(statusEl) {
+    statusEl.textContent = '&#10003; Signed — ' + ref + ' (' + name + ')';
+    statusEl.style.color = 'var(--green)';
   }
-  clearSig();
-  switchTab('stops');
+  var stopEl = document.getElementById('stop-'+currentBOLStop.id);
+  if(stopEl) stopEl.style.borderLeftColor = 'var(--green)';
+
+  // Mark stop done in stops array
+  if(driverJob) {
+    var activeStop = (driverState.bolStore._stops||[]).find(function(s){ return s.id === currentBOLStop.id; });
+  }
+
+  // Check if all stops signed
+  var pickup  = driverState.bolStore.pickup  && driverState.bolStore.pickup.signed;
+  var dropoff = driverState.bolStore.dropoff && driverState.bolStore.dropoff.signed;
+  if(pickup && dropoff) {
+    showToast('Both stops signed! Ready to complete delivery.', 'ok');
+  } else if(stopType === 'pickup') {
+    showToast('Pickup BOL signed. Head to dropoff.', 'ok');
+  } else {
+    showToast('Delivery POD signed: ' + ref, 'ok');
+  }
+
+  closeBOL();
 }
 
 
@@ -4097,54 +4261,133 @@ var bolSigCanvas = null, bolSigCtx = null, bolDrawing = false;
 
 function openBOL(stopId, stopType) {
   currentBOLStop = {id: stopId, type: stopType};
+
+  // Pre-populate from stored data if already partially filled
+  var stored = driverState.bolStore[stopType] || {};
+
   var modal = document.createElement('div');
   modal.id = 'bolModal';
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;overflow-y:auto;padding:20px;';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px;';
 
-  var shipper = 'Khair Group';
+  var inner = document.createElement('div');
+  inner.style.cssText = 'background:var(--s1);border:1px solid var(--bdr2);border-top:3px solid var(--red);border-radius:4px;width:100%;max-width:640px;margin:auto;';
+
+  // Header
+  var hdr = document.createElement('div');
+  hdr.style.cssText = 'padding:18px 22px;border-bottom:1px solid var(--bdr);background:var(--s2);display:flex;justify-content:space-between;align-items:center;';
+  hdr.innerHTML = '<div>'+
+    '<h2 style="font-family:Barlow Condensed,sans-serif;font-size:20px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:2px;">'+
+      (stopType==='pickup' ? '&#128230; Pickup BOL' : '&#9989; Delivery POD')+
+    '</h2>'+
+    '<div style="font-size:11px;color:var(--t2);">'+(driverJob?escHtml(driverJob.quote_num||''):'')+'</div>'+
+    '</div>'+
+    '<button onclick="closeBOL()" style="background:none;border:none;color:var(--t3);font-size:24px;cursor:pointer;padding:4px 8px;">&#215;</button>';
+  inner.appendChild(hdr);
+
+  // Body
+  var body = document.createElement('div');
+  body.style.cssText = 'padding:22px;';
+
+  // Shipper / Receiver grid
   var shipperAddr = driverJob ? driverJob.pickup_address||'' : '';
-  var receiver = driverJob ? driverJob.customer_name||'' : '';
   var receiverAddr = driverJob ? driverJob.dropoff_address||'' : '';
+  var receiver = driverJob ? driverJob.customer_name||'' : '';
   var quoteRef = driverJob ? driverJob.quote_num||'' : '';
 
-  modal.innerHTML =
-    '<div style="background:var(--s1);border:1px solid var(--bdr2);border-top:3px solid var(--red);border-radius:4px;width:100%;max-width:600px;">'+
-      '<div style="padding:18px 22px;border-bottom:1px solid var(--bdr);background:var(--s2);display:flex;justify-content:space-between;align-items:center;">'+
-        '<h2 style="font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">Bill of Lading — '+(stopType==='pickup'?'Pickup':'Delivery')+'</h2>'+
-        '<button onclick="closeBOL()" style="background:none;border:none;color:var(--t3);font-size:22px;cursor:pointer;">&#215;</button>'+
+  body.innerHTML =
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">'+
+      '<div>'+
+        '<div style="font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--t3);margin-bottom:5px;">Shipper</div>'+
+        '<input id="bol-shipper" value="Khair Group" style="width:100%;padding:9px 10px;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;color:var(--text);font-size:13px;outline:none;margin-bottom:6px;">'+
+        '<input id="bol-shipper-addr" value="'+escHtml(shipperAddr)+'" placeholder="Shipper address" style="width:100%;padding:9px 10px;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;color:var(--text);font-size:13px;outline:none;">'+
       '</div>'+
-      '<div style="padding:22px;">'+
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">'+
-          '<div><div style="font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--t3);margin-bottom:4px;">Shipper</div>'+
-            '<input id="bol-shipper" value="'+escHtml(shipper)+'" style="width:100%;padding:8px;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;color:var(--text);font-size:13px;outline:none;margin-bottom:6px;">'+
-            '<input id="bol-shipper-addr" value="'+escHtml(shipperAddr)+'" placeholder="Shipper address" style="width:100%;padding:8px;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;color:var(--text);font-size:13px;outline:none;"></div>'+
-          '<div><div style="font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--t3);margin-bottom:4px;">Receiver</div>'+
-            '<input id="bol-receiver" value="'+escHtml(receiver)+'" style="width:100%;padding:8px;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;color:var(--text);font-size:13px;outline:none;margin-bottom:6px;">'+
-            '<input id="bol-receiver-addr" value="'+escHtml(receiverAddr)+'" placeholder="Receiver address" style="width:100%;padding:8px;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;color:var(--text);font-size:13px;outline:none;"></div>'+
-        '</div>'+
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">'+
-          '<div><div style="font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--t3);margin-bottom:4px;">Quote / BOL Ref</div>'+
-            '<input id="bol-ref" value="'+escHtml(quoteRef)+'" style="width:100%;padding:8px;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;color:var(--text);font-size:13px;outline:none;"></div>'+
-          '<div><div style="font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--t3);margin-bottom:4px;">Description of Goods</div>'+
-            '<input id="bol-desc" placeholder="Freight description..." style="width:100%;padding:8px;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;color:var(--text);font-size:13px;outline:none;"></div>'+
-        '</div>'+
-        '<div style="margin-bottom:16px;"><div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">'+
-          '<div><div style="font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--t3);margin-bottom:4px;">Weight (kg)</div><input id="bol-weight" type="number" placeholder="0" style="width:100%;padding:8px;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;color:var(--text);font-size:13px;outline:none;"></div>'+
-          '<div><div style="font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--t3);margin-bottom:4px;">Pieces / Skids</div><input id="bol-pieces" type="number" placeholder="0" style="width:100%;padding:8px;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;color:var(--text);font-size:13px;outline:none;"></div>'+
-        '</div></div>'+
-        '<div style="margin-bottom:14px;">'+
-          '<div style="font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--t3);margin-bottom:8px;">Recipient Signature</div>'+
-          '<canvas id="bolSigCanvas" width="520" height="150" style="background:white;border:1px solid var(--bdr);border-radius:2px;width:100%;touch-action:none;cursor:crosshair;display:block;"></canvas>'+
-          '<button onclick="clearBolSig()" style="margin-top:6px;background:none;border:1px solid var(--bdr);color:var(--t3);padding:5px 10px;font-size:11px;border-radius:2px;cursor:pointer;">Clear</button>'+
-        '</div>'+
-        '<div style="display:flex;gap:10px;">'+
-          '<button class="btn btn-secondary" onclick="closeBOL()" style="flex:1;">Cancel</button>'+
-          '<button class="btn btn-red" onclick="submitBOL()" style="flex:2;font-size:15px;">&#128203; Submit BOL</button>'+
-        '</div>'+
+      '<div>'+
+        '<div style="font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--t3);margin-bottom:5px;">Receiver</div>'+
+        '<input id="bol-receiver" value="'+escHtml(stored.receiver||receiver)+'" placeholder="Receiver name" style="width:100%;padding:9px 10px;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;color:var(--text);font-size:13px;outline:none;margin-bottom:6px;">'+
+        '<input id="bol-receiver-addr" value="'+escHtml(receiverAddr)+'" placeholder="Delivery address" style="width:100%;padding:9px 10px;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;color:var(--text);font-size:13px;outline:none;">'+
+      '</div>'+
+    '</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">'+
+      '<div>'+
+        '<div style="font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--t3);margin-bottom:5px;">BOL / Quote Ref</div>'+
+        '<input id="bol-ref" value="'+escHtml(stored.ref||quoteRef)+'" style="width:100%;padding:9px 10px;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;color:var(--text);font-size:13px;outline:none;">'+
+      '</div>'+
+      '<div>'+
+        '<div style="font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--t3);margin-bottom:5px;">Description of Goods</div>'+
+        '<input id="bol-desc" value="'+escHtml(stored.desc||'')+'" placeholder="Freight description..." style="width:100%;padding:9px 10px;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;color:var(--text);font-size:13px;outline:none;">'+
+      '</div>'+
+    '</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">'+
+      '<div>'+
+        '<div style="font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--t3);margin-bottom:5px;">Weight (kg)</div>'+
+        '<input id="bol-weight" type="number" value="'+escHtml(stored.weight||'')+'" placeholder="0" style="width:100%;padding:9px 10px;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;color:var(--text);font-size:13px;outline:none;">'+
+      '</div>'+
+      '<div>'+
+        '<div style="font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--t3);margin-bottom:5px;">Pieces / Skids</div>'+
+        '<input id="bol-pieces" type="number" value="'+escHtml(stored.pieces||'')+'" placeholder="0" style="width:100%;padding:9px 10px;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;color:var(--text);font-size:13px;outline:none;">'+
       '</div>'+
     '</div>';
+
+  body.innerHTML += '<hr style="border:none;border-top:1px solid var(--bdr);margin:18px 0;">';
+
+  // Photo upload section
+  body.innerHTML +=
+    '<div style="margin-bottom:18px;">'+
+      '<div style="font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;">'+
+        '&#128247; Photos — '+(stopType==='pickup'?'Pickup':'Delivery')+' Evidence'+
+      '</div>'+
+      '<div style="display:flex;gap:10px;margin-bottom:10px;">'+
+        '<label style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--s2);border:1px dashed var(--bdr);border-radius:3px;padding:14px;cursor:pointer;font-size:13px;color:var(--t2);transition:all 0.15s;text-transform:none;letter-spacing:0;" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='var(--bdr)';this.style.color='var(--t2)'">'+
+          '<span style="font-size:20px;">&#128247;</span> Take Photo / Upload'+
+          '<input type="file" accept="image/*" capture="environment" multiple style="display:none;" onchange="addBolPhotos(this.files)">'+
+        '</label>'+
+      '</div>'+
+      '<div id="bolPhotoGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;"></div>'+
+    '</div>';
+
+  body.innerHTML += '<hr style="border:none;border-top:1px solid var(--bdr);margin:18px 0;">';
+
+  // Signature
+  body.innerHTML +=
+    '<div style="margin-bottom:18px;">'+
+      '<div style="font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--t3);margin-bottom:8px;">Recipient Signature *</div>'+
+      '<canvas id="bolSigCanvas" width="560" height="160" style="background:white;border:2px solid var(--bdr);border-radius:2px;width:100%;touch-action:none;cursor:crosshair;display:block;"></canvas>'+
+      '<div style="display:flex;gap:8px;margin-top:8px;">'+
+        '<button onclick="clearBolSig()" style="background:none;border:1px solid var(--bdr);color:var(--t3);padding:6px 14px;font-size:11px;border-radius:2px;cursor:pointer;font-family:Barlow,sans-serif;">&#8635; Clear Signature</button>'+
+        '<div style="font-size:11px;color:var(--t3);align-self:center;margin-left:8px;">Sign with finger or mouse</div>'+
+      '</div>'+
+    '</div>';
+
+  // Restore existing signature if present
+  if(stored.sigData) {
+    body.innerHTML += '<div style="font-size:11px;color:var(--green);margin-bottom:10px;">&#10003; Previously signed — re-sign to update</div>';
+  }
+
+  // Restore existing photos
+  body.innerHTML +=
+    '<div style="display:flex;gap:10px;">'+
+      '<button class="btn btn-secondary" onclick="closeBOL()" style="flex:1;">Cancel</button>'+
+      '<button class="btn btn-primary" onclick="submitBOL()" style="flex:2;font-size:15px;">&#10003; Submit '+(stopType==='pickup'?'Pickup BOL':'Delivery POD')+'</button>'+
+    '</div>';
+
+  inner.appendChild(body);
+  modal.appendChild(inner);
   document.body.appendChild(modal);
   initBolSig();
+  // Wire photo input after DOM is ready
+  var pi = document.getElementById('bolPhotoInput');
+  if(pi) pi.onchange = function(){ addBolPhotos(this.files); };
+  var pl = document.getElementById('bolPhotoLabel');
+  if(pl) {
+    pl.onmouseover = function(){ this.style.borderColor='var(--red)'; this.style.color='var(--text)'; };
+    pl.onmouseout  = function(){ this.style.borderColor='var(--bdr)'; this.style.color='var(--t2)'; };
+  }
+
+  // Restore previously uploaded photos to grid
+  var existingPhotos = (driverState.bolStore[stopType]||{}).photos || [];
+  existingPhotos.forEach(function(dataUrl) {
+    addBolPhotoToGrid(dataUrl);
+  });
 }
 
 function closeBOL() {
@@ -4223,9 +4466,20 @@ function submitBOL() {
 
 function completeDelivery() {
   if(!driverJob) { showToast('No active job','err'); return; }
-  if(!confirm('Mark delivery as complete? This will convert the quote to an invoice.')) return;
+  if(!confirm('Mark delivery as complete? This will generate the POD document and create an invoice.')) return;
   if(!sb) { showToast('Not connected','err'); return; }
 
+  // Check if BOLs were signed
+  var pickupSigned  = driverState.bolStore && driverState.bolStore.pickup  && driverState.bolStore.pickup.signed;
+  var dropoffSigned = driverState.bolStore && driverState.bolStore.dropoff && driverState.bolStore.dropoff.signed;
+  if(!pickupSigned || !dropoffSigned) {
+    if(!confirm('Not all BOLs have been signed. Complete anyway?')) return;
+  }
+
+  // Generate POD PDF first
+  try { generatePODPDF(); } catch(e) { console.error('POD PDF error:', e); }
+
+  // Update quote in DB
   sb.from('quotes').update({
     dispatch_status: 'delivered',
     status: 'converted',
@@ -4233,14 +4487,22 @@ function completeDelivery() {
   }).eq('id', driverJob.id).then(function(r) {
     if(r.error) { showToast('Error: '+r.error.message,'err'); return; }
     var qid = driverJob.id;
+
+    // Reset UI
     driverJob = null;
+    driverState.bolStore = {
+      pickup:  {ref:'',receiver:'',desc:'',weight:'',pieces:'',sigData:null,photos:[],timestamp:null,signed:false},
+      dropoff: {ref:'',receiver:'',desc:'',weight:'',pieces:'',sigData:null,photos:[],timestamp:null,signed:false}
+    };
+
     var card = document.getElementById('driverJobCard');
     if(card) card.style.display = 'none';
     var stops = document.getElementById('driverStopsSection');
     if(stops) stops.style.display = 'none';
     var sel = document.getElementById('dispatchSel');
     if(sel) sel.value = '';
-    showToast('Delivery complete! Converting to invoice...','ok');
+
+    showToast('Delivery complete! POD downloaded. Converting to invoice...','ok');
     loadQuotes().then(function(){
       populateDispatchSel();
       convertToInvoice(qid);
@@ -4278,6 +4540,582 @@ function renderFuelLog() {
     tr.innerHTML = '<td>'+escHtml(e.station||'')+'</td><td style="font-family:monospace;">'+e.litres+'L</td><td style="font-family:monospace;">$'+e.ppl+'/L</td><td style="font-family:monospace;">$'+e.total+'</td><td>'+escHtml(e.type)+'</td><td style="font-size:11px;color:var(--t3);">'+escHtml(e.time)+'</td>';
     tbody.appendChild(tr);
   });
+}
+
+function buildInvoiceEmailBody(inv) {
+  if(!inv) return '';
+  var company = 'Khair Group';
+  var phone   = '(647) 709-4052';
+  var website = 'www.khairgroup.ca';
+  var payEmail= 'khalid@khairgroup.ca';
+  var dueDate = inv.due_date || 'Upon Receipt';
+  var amount  = '$' + (+inv.total||0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+  var body = company + '\n';
+  body += '33 Osborn Ave, Brantford, ON N3T 6R1\n';
+  body += phone + ' | ' + website + '\n';
+  body += '---\n\n';
+  body += 'Dear ' + (inv.customer_name || 'Valued Customer') + ',\n\n';
+  body += 'Please find attached Invoice #' + inv.invoice_num + ' for services rendered.\n\n';
+  body += 'INVOICE DETAILS\n';
+  body += 'Invoice #: ' + inv.invoice_num + '\n';
+  body += 'Amount Due: ' + amount + '\n';
+  body += 'Due Date: ' + dueDate + '\n\n';
+  if(inv.pickup_address || inv.dropoff_address) {
+    body += 'SERVICE DETAILS\n';
+    if(inv.pickup_address) body += 'Pickup: ' + inv.pickup_address + '\n';
+    if(inv.dropoff_address) body += 'Delivery: ' + inv.dropoff_address + '\n';
+    body += '\n';
+  }
+  body += 'PAYMENT\n';
+  body += 'E-Transfer: ' + payEmail + '\n';
+  body += 'Bank Transfer / Credit Card available on request.\n\n';
+  body += 'Payment Terms: Net 30. Late payments subject to 5% fee.\n\n';
+  body += 'Thank you for your business!\n\n';
+  body += 'Best regards,\n';
+  body += company + '\n';
+  body += phone + '\n';
+  body += website;
+  return body;
+}
+
+function downloadQuotePDF(id) {
+  var q = DB.quotes.find(function(x){ return x.id === id; });
+  if(!q) { showToast('Quote not found','err'); return; }
+  var setV = function(elId, val){ var el = document.getElementById(elId); if(el) el.value = val||''; };
+  setV('custName', q.customer_name); setV('custEmail', q.customer_email);
+  setV('custPhone', q.customer_phone); setV('custAddr', q.customer_address);
+  setV('addrA', q.pickup_address); setV('addrB', q.dropoff_address);
+  setV('quoteRef', q.quote_num); setV('distance', q.distance_km || 0);
+  _surcharges = {};
+  if(q.notes) { var n=document.getElementById('internalNotes'); if(n) n.value=q.notes; }
+  showToast('Generating PDF for ' + q.quote_num + '...','inf');
+  setTimeout(function(){
+    try { recalc(); generatePDF(); }
+    catch(e) { showToast('PDF error: ' + e.message,'err'); console.error(e); }
+  }, 400);
+}
+
+// ── STANDALONE INVOICE CREATOR ───────────────────────────────────
+var siLineCount = 0;
+
+function openCreateInvoicePanel() {
+  var p = document.getElementById('standaloneInvPanel');
+  if(p) {
+    p.style.display = 'block';
+    // Set default due date
+    var d = new Date(); d.setDate(d.getDate()+30);
+    var el = document.getElementById('siDueDate'); if(el) el.value = d.toISOString().split('T')[0];
+    // Add first line item if empty
+    var tbody = document.getElementById('siLineItems');
+    if(tbody && !tbody.children.length) addSiLineItem();
+    // Pre-focus name
+    setTimeout(function(){ var n=document.getElementById('siCustName'); if(n) n.focus(); }, 100);
+  }
+}
+
+function closeCreateInvoicePanel() {
+  var p = document.getElementById('standaloneInvPanel');
+  if(p) p.style.display = 'none';
+}
+
+function onSiCustSearch(val) {
+  var drop = document.getElementById('siCustDropdown');
+  if(!drop) return;
+  var q = (val||'').toLowerCase().trim();
+  var matches = DB.customers.filter(function(c){
+    return !q || (c.name||'').toLowerCase().includes(q) || (c.company||'').toLowerCase().includes(q);
+  }).slice(0,8);
+  if(!matches.length) { drop.classList.remove('open'); return; }
+  drop.innerHTML = '';
+  matches.forEach(function(c) {
+    var opt = document.createElement('div');
+    opt.className = 'cust-option';
+    opt.innerHTML = '<div class="cust-option-name">'+escHtml(c.name)+(c.company?' <span style="font-weight:400;color:var(--t2);">· '+escHtml(c.company)+'</span>':'')+'</div>'+
+      '<div class="cust-option-meta">'+(c.email?'<span>'+escHtml(c.email)+'</span>':'')+(c.phone?'<span>'+escHtml(c.phone)+'</span>':'')+'</div>';
+    opt.addEventListener('mousedown', function(e){
+      e.preventDefault();
+      var n=document.getElementById('siCustName'); if(n) n.value=c.name;
+      var em=document.getElementById('siEmail');  if(em) em.value=c.email||'';
+      var ph=document.getElementById('siPhone');  if(ph) ph.value=c.phone||'';
+      var to=document.getElementById('siEmailTo'); if(to) to.value=c.email||'';
+      drop.classList.remove('open');
+      updateSiEmailBody();
+    });
+    drop.appendChild(opt);
+  });
+  drop.classList.add('open');
+}
+
+function addSiLineItem() {
+  var tbody = document.getElementById('siLineItems');
+  if(!tbody) return;
+  var id = siLineCount++;
+  var tr = document.createElement('tr');
+  tr.id = 'si-line-'+id;
+
+  var descTd = document.createElement('td'); descTd.style.padding='4px 6px';
+  var descInput = document.createElement('input');
+  descInput.type='text'; descInput.placeholder='Service description';
+  descInput.oninput = calcSiTotals;
+  descInput.style.cssText='width:100%;padding:7px 8px;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;font-size:13px;color:var(--text);outline:none;';
+  descTd.appendChild(descInput);
+
+  var priceTd = document.createElement('td'); priceTd.style.padding='4px 6px';
+  var priceInput = document.createElement('input');
+  priceInput.type='number'; priceInput.placeholder='0.00'; priceInput.min='0'; priceInput.step='0.01';
+  priceInput.oninput = calcSiTotals;
+  priceInput.style.cssText='width:100%;padding:7px 8px;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;font-size:13px;color:var(--text);outline:none;text-align:right;';
+  priceTd.appendChild(priceInput);
+
+  var qtyTd = document.createElement('td'); qtyTd.style.padding='4px 6px';
+  var qtyInput = document.createElement('input');
+  qtyInput.type='number'; qtyInput.value='1'; qtyInput.min='1';
+  qtyInput.oninput = calcSiTotals;
+  qtyInput.style.cssText='width:100%;padding:7px 8px;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;font-size:13px;color:var(--text);outline:none;text-align:center;';
+  qtyTd.appendChild(qtyInput);
+
+  var totalTd = document.createElement('td');
+  totalTd.id = 'si-line-total-'+id;
+  totalTd.style.cssText='padding:4px 6px;text-align:right;font-family:monospace;font-size:12px;color:var(--t2);';
+  totalTd.textContent = '$0.00';
+
+  var delTd = document.createElement('td'); delTd.style.padding='4px';
+  var delBtn = document.createElement('button');
+  delBtn.innerHTML = '&times;';
+  delBtn.style.cssText='background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px;padding:0 4px;line-height:1;';
+  delBtn.onmouseover = function(){ this.style.color='var(--red)'; };
+  delBtn.onmouseout  = function(){ this.style.color='var(--t3)'; };
+  delBtn.onclick = function(){ tr.remove(); calcSiTotals(); };
+  delTd.appendChild(delBtn);
+
+  tr.appendChild(descTd); tr.appendChild(priceTd); tr.appendChild(qtyTd);
+  tr.appendChild(totalTd); tr.appendChild(delTd);
+  tbody.appendChild(tr);
+}
+
+function getSiLineItems() {
+  var items = [];
+  var rows = document.getElementById('siLineItems').rows;
+  for(var i=0; i<rows.length; i++) {
+    var inputs = rows[i].querySelectorAll('input');
+    var desc  = inputs[0] ? inputs[0].value : '';
+    var price = parseFloat(inputs[1] ? inputs[1].value : 0)||0;
+    var qty   = parseInt(inputs[2] ? inputs[2].value : 1)||1;
+    var total = price * qty;
+    var totEl = rows[i].querySelector('[id^="si-line-total"]');
+    if(totEl) totEl.textContent = '$'+total.toFixed(2);
+    if(desc || price) items.push({desc:desc, price:price, qty:qty, amount:total});
+  }
+  return items;
+}
+
+function calcSiTotals() {
+  var items   = getSiLineItems();
+  var sub     = items.reduce(function(s,i){return s+i.amount;},0);
+  var exempt  = document.getElementById('siHstExempt') && document.getElementById('siHstExempt').checked;
+  var hst     = exempt ? 0 : sub * 0.13;
+  var total   = sub + hst;
+  var elSub   = document.getElementById('siSubtotal'); if(elSub) elSub.textContent = '$'+sub.toFixed(2);
+  var elHst   = document.getElementById('siHst');      if(elHst) elHst.textContent = (exempt?'Exempt ':'')+'$'+hst.toFixed(2);
+  var elTotal = document.getElementById('siTotal');    if(elTotal) elTotal.textContent = '$'+total.toFixed(2);
+  return {items:items, sub:sub, hst:hst, total:total, exempt:exempt};
+}
+
+async function saveSiInvoice(generatePdf) {
+  var name = (document.getElementById('siCustName')||{}).value||'';
+  if(!name.trim()) { showToast('Customer name required','err'); return; }
+  var totals = calcSiTotals();
+  if(!totals.items.length) { showToast('Add at least one line item','err'); return; }
+  var d = new Date();
+  var invNum = (document.getElementById('siInvNum')||{}).value ||
+    ('INV-'+d.getFullYear().toString().slice(2)+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0')+'-'+Math.floor(Math.random()*900+100));
+
+  // Find or create customer
+  var cust = DB.customers.find(function(c){return c.name.toLowerCase()===name.toLowerCase();});
+  if(!cust && sb) {
+    var r = await sb.from('customers').insert({name:name, email:(document.getElementById('siEmail')||{}).value||'', phone:(document.getElementById('siPhone')||{}).value||''}).select().single();
+    if(r.data) { cust=r.data; DB.customers.push(cust); }
+  }
+
+  var payload = {
+    invoice_num:     invNum,
+    customer_id:     cust ? cust.id : null,
+    customer_name:   name,
+    customer_email:  (document.getElementById('siEmail')||{}).value||'',
+    customer_phone:  (document.getElementById('siPhone')||{}).value||'',
+    service_type:    (document.getElementById('siService')||{}).value||'other',
+    status:          'unpaid',
+    items:           JSON.stringify(totals.items),
+    subtotal:        totals.sub,
+    hst_amount:      totals.hst,
+    hst_exempt:      totals.exempt,
+    total:           totals.total,
+    due_date:        (document.getElementById('siDueDate')||{}).value||null,
+    notes:           (document.getElementById('siNotes')||{}).value||'',
+    updated_at:      new Date().toISOString()
+  };
+
+  if(!sb) { showToast('Not connected to database','err'); return; }
+  var r2 = await sb.from('invoices').insert(payload);
+  if(r2.error) { showToast('Error: '+r2.error.message,'err'); return; }
+
+  showToast('Invoice '+invNum+' saved ✓','ok');
+
+  // Show email panel
+  var emailPanel = document.getElementById('siEmailPreview');
+  if(emailPanel) {
+    emailPanel.classList.add('show');
+    var subj = document.getElementById('siEmailSubj');
+    if(subj) subj.value = 'Invoice '+invNum+' from Khair Group';
+    var to = document.getElementById('siEmailTo');
+    if(to && !to.value) to.value = (document.getElementById('siEmail')||{}).value||'';
+    updateSiEmailBody(invNum, name, totals.total, (document.getElementById('siDueDate')||{}).value||'');
+  }
+
+  await loadInvoices();
+  updateBadges();
+  updateDashboard();
+
+  if(generatePdf) {
+    setTimeout(function(){
+      // Pre-fill for generateInvoice
+      var setV = function(id,val){var el=document.getElementById(id);if(el)el.value=val||'';};
+      setV('custName', name);
+      setV('custEmail', (document.getElementById('siEmail')||{}).value||'');
+      setV('custPhone', (document.getElementById('siPhone')||{}).value||'');
+      setV('invoiceNum', invNum);
+      setV('invoiceDueDate', (document.getElementById('siDueDate')||{}).value||'');
+      setV('invoiceTermsNote', 'Payment due within 30 days. Late payments subject to 5% fee.');
+      window._invoiceStatus = 'unpaid';
+      generateInvoice();
+    }, 400);
+  }
+}
+
+function updateSiEmailBody(invNum, custName, total, dueDate) {
+  var body = document.getElementById('siEmailBody');
+  if(!body) return;
+  var inv = {
+    invoice_num: invNum || (document.getElementById('siInvNum')||{}).value || 'INV-XXXX',
+    customer_name: custName || (document.getElementById('siCustName')||{}).value || '',
+    customer_email: (document.getElementById('siEmail')||{}).value||'',
+    due_date: dueDate || (document.getElementById('siDueDate')||{}).value||'',
+    total: total || 0
+  };
+  body.textContent = buildInvoiceEmailBody(inv);
+}
+
+function openSiMailClient() {
+  var to   = (document.getElementById('siEmailTo')||{}).value||'';
+  var subj = encodeURIComponent((document.getElementById('siEmailSubj')||{}).value||'');
+  var body = encodeURIComponent((document.getElementById('siEmailBody')||{}).textContent||'');
+  window.location.href = 'mailto:'+to+'?subject='+subj+'&body='+body;
+}
+
+function copySiEmailBody() {
+  var text = (document.getElementById('siEmailBody')||{}).textContent||'';
+  navigator.clipboard.writeText(text).then(function(){
+    var b=document.getElementById('siCopyEmailBtn'); if(b){b.textContent='Copied!';setTimeout(function(){b.textContent='Copy Body';},2000);}
+  });
+}
+
+// BOL photo storage (current session)
+var bolCurrentPhotos = [];
+
+function addBolPhotos(files) {
+  var grid = document.getElementById('bolPhotoGrid');
+  if(!files || !grid) return;
+  Array.from(files).forEach(function(file) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var dataUrl = e.target.result;
+      bolCurrentPhotos.push(dataUrl);
+      addBolPhotoToGrid(dataUrl);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function addBolPhotoToGrid(dataUrl) {
+  var grid = document.getElementById('bolPhotoGrid');
+  if(!grid) return;
+  var wrap = document.createElement('div');
+  wrap.style.cssText = 'position:relative;border-radius:3px;overflow:hidden;aspect-ratio:4/3;background:var(--s2);';
+  var img = document.createElement('img');
+  img.src = dataUrl;
+  img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+  var del = document.createElement('button');
+  del.innerHTML = '&#215;';
+  del.style.cssText = 'position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.7);color:white;border:none;border-radius:50%;width:22px;height:22px;font-size:14px;cursor:pointer;line-height:1;padding:0;display:flex;align-items:center;justify-content:center;';
+  del.onclick = function() {
+    var idx = bolCurrentPhotos.indexOf(dataUrl);
+    if(idx >= 0) bolCurrentPhotos.splice(idx, 1);
+    wrap.remove();
+  };
+  wrap.appendChild(img);
+  wrap.appendChild(del);
+  grid.appendChild(wrap);
+}
+
+function generatePODPDF() {
+  var jsPDF = window.jspdf && window.jspdf.jsPDF;
+  if(!jsPDF) { showToast('PDF library not loaded','err'); return; }
+
+  var doc = new jsPDF({ unit:'pt', format:'letter', orientation:'portrait' });
+  var PW = 612, PH = 792;
+  var ML = 40, MR = 40, MT = 40;
+  var CW = PW - ML - MR;
+  var y = MT;
+
+  var pickup  = (driverState.bolStore && driverState.bolStore.pickup)  || {};
+  var dropoff = (driverState.bolStore && driverState.bolStore.dropoff) || {};
+  var job     = driverJob || {};
+  var today   = new Date();
+  var dateFmt = function(d){ return d.toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'}); };
+
+  // ── Header bar ──────────────────────────────────────────────
+  doc.setFillColor(204,31,31);
+  doc.rect(0, 0, PW, 72, 'F');
+
+  // Logo
+  if(typeof LOGO_DATA_URI === 'string' && LOGO_DATA_URI.length > 100) {
+    try { doc.addImage(LOGO_DATA_URI, 'PNG', ML, 8, 56, 56); } catch(e){}
+  }
+
+  // Company name
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(22);
+  doc.setTextColor(255,255,255);
+  doc.text('PROOF OF DELIVERY', ML+66, 32);
+  doc.setFontSize(10);
+  doc.setFont('helvetica','normal');
+  doc.text('Khair Group  |  33 Osborn Ave, Brantford, ON  |  (647) 709-4052  |  www.khairgroup.ca', ML+66, 50);
+
+  // POD number + date
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(11);
+  doc.text('POD: ' + (pickup.ref || dropoff.ref || 'KG-POD-'+Date.now()), PW-MR, 28, {align:'right'});
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(10);
+  doc.text(dateFmt(today), PW-MR, 44, {align:'right'});
+
+  y = 90;
+
+  // ── Job Info Box ──────────────────────────────────────────────
+  doc.setFillColor(22,22,22);
+  doc.rect(ML, y, CW, 56, 'F');
+  doc.setDrawColor(42,42,42);
+  doc.rect(ML, y, CW, 56, 'S');
+
+  doc.setTextColor(170,170,170);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(8);
+  doc.text('QUOTE REF', ML+12, y+14);
+  doc.text('VEHICLE', ML+120, y+14);
+  doc.text('DRIVER COMPLETED', ML+220, y+14);
+  doc.text('SERVICE TYPE', ML+370, y+14);
+
+  doc.setTextColor(240,240,240);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(11);
+  doc.text(job.quote_num||'—', ML+12, y+32);
+  doc.text(driverState.vehicle||'—', ML+120, y+32);
+  doc.text(dateFmt(today), ML+220, y+32);
+  doc.text('Delivery / Freight', ML+370, y+32);
+
+  doc.setTextColor(170,170,170);
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(9);
+  doc.text('Customer: '+(job.customer_name||'—'), ML+12, y+48);
+
+  y += 72;
+
+  // ── Two-column: Pickup / Delivery addresses ────────────────────
+  var col1x = ML, col2x = ML + CW/2 + 8, colW = CW/2 - 8;
+
+  function drawAddrBox(x, w, label, color, addr, name, ref, ts) {
+    doc.setFillColor(15,15,15);
+    doc.rect(x, y, w, 70, 'F');
+    doc.setFillColor(color[0],color[1],color[2]);
+    doc.rect(x, y, w, 4, 'F');
+    doc.setDrawColor(42,42,42);
+    doc.rect(x, y, w, 70, 'S');
+
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(8);
+    doc.setTextColor(color[0],color[1],color[2]);
+    doc.text(label, x+10, y+18);
+
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(11);
+    doc.setTextColor(240,240,240);
+    doc.text(name||'—', x+10, y+34);
+
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(9);
+    doc.setTextColor(170,170,170);
+    var addrLines = doc.splitTextToSize(addr||'—', w-20);
+    doc.text(addrLines[0]||'', x+10, y+47);
+    if(addrLines[1]) doc.text(addrLines[1], x+10, y+58);
+
+    if(ref) {
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(8);
+      doc.setTextColor(150,150,150);
+      doc.text('REF: '+ref, x+w-10, y+18, {align:'right'});
+    }
+  }
+
+  drawAddrBox(col1x, colW, 'PICKUP LOCATION', [52,152,219], job.pickup_address||'', 'Khair Group', pickup.ref||'', pickup.timestamp);
+  drawAddrBox(col2x, colW, 'DELIVERY LOCATION', [46,204,113], job.dropoff_address||'', job.customer_name||'', dropoff.ref||'', dropoff.timestamp);
+  y += 86;
+
+  // ── Goods Info ───────────────────────────────────────────────
+  var pDesc    = pickup.desc    || dropoff.desc    || 'Freight delivery';
+  var pWeight  = pickup.weight  || dropoff.weight  || '—';
+  var pPieces  = pickup.pieces  || dropoff.pieces  || '—';
+
+  doc.setFillColor(15,15,15);
+  doc.rect(ML, y, CW, 40, 'F');
+  doc.setDrawColor(42,42,42);
+  doc.rect(ML, y, CW, 40, 'S');
+
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(8);
+  doc.setTextColor(102,102,102);
+  doc.text('DESCRIPTION OF GOODS', ML+10, y+13);
+  doc.text('WEIGHT (kg)', ML+260, y+13);
+  doc.text('PIECES / SKIDS', ML+360, y+13);
+
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(11);
+  doc.setTextColor(240,240,240);
+  doc.text(pDesc, ML+10, y+28);
+  doc.text(String(pWeight), ML+260, y+28);
+  doc.text(String(pPieces), ML+360, y+28);
+  y += 54;
+
+  // ── Signatures Section ─────────────────────────────────────────
+  function drawSigSection(x, w, label, bolData, accentColor) {
+    var sh = 120;
+    doc.setFillColor(15,15,15);
+    doc.rect(x, y, w, sh, 'F');
+    doc.setFillColor(accentColor[0],accentColor[1],accentColor[2]);
+    doc.rect(x, y, 3, sh, 'F');
+    doc.setDrawColor(42,42,42);
+    doc.rect(x, y, w, sh, 'S');
+
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(9);
+    doc.setTextColor(accentColor[0],accentColor[1],accentColor[2]);
+    doc.text(label, x+12, y+16);
+
+    if(bolData && bolData.signed && bolData.sigData) {
+      // Signature image
+      try {
+        doc.addImage(bolData.sigData, 'PNG', x+12, y+22, w-24, 60);
+      } catch(e) {}
+      // Signed line
+      doc.setDrawColor(60,60,60);
+      doc.line(x+12, y+86, x+w-12, y+86);
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(8);
+      doc.setTextColor(100,100,100);
+      doc.text('Signed by: '+(bolData.receiver||''), x+12, y+98);
+      if(bolData.timestamp) {
+        var d = new Date(bolData.timestamp);
+        doc.text(d.toLocaleString('en-CA'), x+w-12, y+98, {align:'right'});
+      }
+      doc.text('BOL Ref: '+(bolData.ref||''), x+12, y+110);
+    } else {
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(10);
+      doc.setTextColor(80,80,80);
+      doc.text('Not signed', x+12, y+60);
+    }
+  }
+
+  var sigColW = (CW - 10) / 2;
+  drawSigSection(ML, sigColW, 'PICKUP SIGNATURE', pickup, [52,152,219]);
+  drawSigSection(ML + sigColW + 10, sigColW, 'DELIVERY SIGNATURE', dropoff, [46,204,113]);
+  y += 136;
+
+  // ── Photo Evidence ─────────────────────────────────────────────
+  var allPhotos = [];
+  (pickup.photos  || []).forEach(function(p){ allPhotos.push({data:p, label:'Pickup'}); });
+  (dropoff.photos || []).forEach(function(p){ allPhotos.push({data:p, label:'Delivery'}); });
+
+  if(allPhotos.length > 0) {
+    // Section header
+    doc.setFillColor(22,22,22);
+    doc.rect(ML, y, CW, 26, 'F');
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(9);
+    doc.setTextColor(170,170,170);
+    doc.text('PHOTO EVIDENCE (' + allPhotos.length + ' photo' + (allPhotos.length>1?'s':'') + ')', ML+10, y+17);
+    y += 32;
+
+    var photoW = (CW - 20) / 3;
+    var photoH = photoW * 0.75;
+    var px_pos = ML, py_pos = y, photoCount = 0;
+
+    allPhotos.forEach(function(photo) {
+      // Check if we need a new page
+      if(py_pos + photoH + 24 > PH - 60) {
+        doc.addPage();
+        py_pos = MT;
+        px_pos = ML;
+        photoCount = 0;
+      }
+      try {
+        doc.addImage(photo.data, 'JPEG', px_pos, py_pos, photoW, photoH);
+      } catch(e) {
+        try { doc.addImage(photo.data, 'PNG', px_pos, py_pos, photoW, photoH); } catch(e2){}
+      }
+      // Label
+      doc.setFillColor(0,0,0,0.6);
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(7);
+      doc.setTextColor(200,200,200);
+      doc.text(photo.label + ' Photo', px_pos+4, py_pos + photoH - 4);
+
+      photoCount++;
+      if(photoCount % 3 === 0) {
+        px_pos = ML;
+        py_pos += photoH + 10;
+      } else {
+        px_pos += photoW + 10;
+      }
+    });
+
+    y = py_pos + photoH + 16;
+  }
+
+  // ── Footer ─────────────────────────────────────────────────────
+  // If we're close to bottom, add new page
+  if(y > PH - 80) { doc.addPage(); y = MT; }
+
+  doc.setFillColor(15,15,15);
+  doc.rect(ML, y, CW, 50, 'F');
+  doc.setDrawColor(42,42,42);
+  doc.rect(ML, y, CW, 50, 'S');
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(9);
+  doc.setTextColor(102,102,102);
+  doc.text('TERMS & CONDITIONS', ML+12, y+15);
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(8);
+  doc.text('This document confirms delivery of the goods described above. By signing above, the receiver acknowledges receipt in good condition unless noted.', ML+12, y+27, {maxWidth: CW-24});
+  doc.text('Khair Group  |  33 Osborn Ave, Brantford, ON N3T 6R1  |  (647) 709-4052  |  www.khairgroup.ca  |  khalid@khairgroup.ca', ML+12, y+42, {maxWidth: CW-24});
+
+  // Bottom red stripe
+  doc.setFillColor(204,31,31);
+  doc.rect(0, PH-8, PW, 8, 'F');
+
+  // Save
+  var filename = 'KG-POD-' + (job.quote_num||Date.now()) + '.pdf';
+  doc.save(filename);
+  showToast('POD document saved: ' + filename, 'ok');
 }
 </script>
 </body>
