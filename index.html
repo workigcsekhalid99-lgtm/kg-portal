@@ -2404,21 +2404,31 @@ function tryConnect() {
 
 // ── NAV ───────────────────────────────────────
 function navTo(page) {
-  document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});
-  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+  document.querySelectorAll('.nav-item').forEach(function(n){ n.classList.remove('active'); });
+  document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
   var ni = document.querySelector('[data-page="'+page+'"]');
   if(ni) ni.classList.add('active');
   var pg = document.getElementById('page-'+page);
   if(pg) pg.classList.add('active');
-  if(page==='shipping') recalc();
-  if(page==='leads') { loadLeads(); }
-  if(page==='driver') populateDispatchSel();
+  // Re-render each page from cached DB data (or load if not yet loaded)
+  if(page === 'dashboard')  { updateDashboard(); drawCharts(); }
+  if(page === 'leads')      { if(!DB.leads.length)    loadLeads();    else { renderLeads(); renderPipeline(); } }
+  if(page === 'customers')  { if(!DB.customers.length) loadCustomers(); else renderCustomers(); }
+  if(page === 'quotes')     { if(!DB.quotes.length)   loadQuotes();   else renderQuotes(); }
+  if(page === 'invoices')   { if(!DB.invoices.length)  loadInvoices();  else renderInvoices(); }
+  if(page === 'followups')  { updateFollowups(); }
+  if(page === 'shipping')   { recalc(); }
+  if(page === 'driver')     { populateDispatchSel(); }
 }
 
 // ── REFRESH ───────────────────────────────────
 async function refreshAll() {
   await Promise.all([loadLeads(), loadCustomers(), loadQuotes(), loadInvoices()]);
-  updateDashboard(); updateFollowups(); updateBadges(); populateDispatchSel();
+  updateDashboard();
+  updateFollowups();
+  updateBadges();
+  populateDispatchSel();
+  drawCharts();
 }
 
 async function loadLeads() {
