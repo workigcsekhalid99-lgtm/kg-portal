@@ -910,14 +910,14 @@ select.form-input option{background:var(--bg3);}
   .field-row.triple { grid-template-columns: 1fr 1fr 1fr; }
   .field { display: flex; flex-direction: column; gap: 6px; }
 
-  #page-shipping label {
+  #page-shipping .panel-body label, #page-shipping .settings-section label, #page-shipping .invoice-panel label {
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--t2);
   }
-  #page-shipping input, #page-shipping select, #page-shipping textarea {
+  #page-shipping .panel-body input, #page-shipping .panel-body select, #page-shipping .panel-body textarea, #page-shipping .settings-section input, #page-shipping .settings-section select, #page-shipping .settings-section textarea, #page-shipping .invoice-panel input, #page-shipping .invoice-panel select {
     font-family: 'Barlow', sans-serif;
     font-size: 14px;
     color: var(--text);
@@ -929,18 +929,20 @@ select.form-input option{background:var(--bg3);}
     transition: border-color 0.15s;
     width: 100%;
   }
-  #page-shipping input:focus, #page-shipping select:focus, #page-shipping textarea:focus {
+  #page-shipping .panel-body input:focus, #page-shipping .panel-body select:focus, #page-shipping .panel-body textarea:focus, #page-shipping .settings-section input:focus, #page-shipping .settings-section select:focus {
     border-color: var(--red);
     background: #1f1f1f;
   }
-  #page-shipping select option { background: var(--s2); }
-  #page-shipping textarea { resize: vertical; min-height: 68px; }
+  #page-shipping .panel-body select option, #page-shipping .settings-section select option { background: var(--s2); }
+  #page-shipping .panel-body textarea { resize: vertical; min-height: 68px; }
 
   .prefix-wrap { position: relative; }
-  .prefix-wrap input { padding-left: 26px; }
+  .prefix-wrap input { padding-left: 28px; }
   .prefix {
-    position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
-    font-size: 13px; color: var(--t2); pointer-events: none;
+    position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+    font-size: 14px; color: var(--t2); pointer-events: none;
+    font-family: 'Barlow', sans-serif;
+    z-index: 1;
   }
 
   .section-divider {
@@ -1421,6 +1423,169 @@ select.form-input option{background:var(--bg3);}
   align-items: start;
 }
 @media (max-width: 1100px) { .qt-wrap { grid-template-columns: 1fr; } .preview-sticky { position: static; } }
+
+/* ── Customer picker in shipping quote ── */
+.cust-search-wrap {
+  position: relative;
+}
+.cust-search-wrap input {
+  padding-right: 36px;
+}
+.cust-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0; right: 0;
+  background: var(--s2);
+  border: 1px solid var(--red);
+  border-top: none;
+  border-radius: 0 0 3px 3px;
+  max-height: 220px;
+  overflow-y: auto;
+  z-index: 100;
+  display: none;
+}
+.cust-dropdown.open { display: block; }
+.cust-option {
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--bdr);
+  transition: background 0.1s;
+}
+.cust-option:last-child { border-bottom: none; }
+.cust-option:hover { background: var(--s1); }
+.cust-option-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+.cust-option-meta {
+  font-size: 11px;
+  color: var(--t2);
+  display: flex;
+  gap: 10px;
+}
+.cust-filled-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--green);
+  background: var(--green-gl);
+  padding: 2px 8px;
+  border-radius: 2px;
+  margin-left: auto;
+  cursor: pointer;
+}
+.cust-filled-badge:hover { background: rgba(46,204,113,0.2); }
+
+/* ── Panel header clean up ── */
+.panel {
+  border-top-color: var(--red);
+}
+.panel-header {
+  background: var(--s2);
+}
+.panel-num {
+  background: var(--red);
+  color: white;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 12px;
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* ── Settings toggle fix ── */
+.settings-toggle .arr {
+  font-size: 11px;
+  color: var(--t2);
+  transition: transform 0.2s;
+}
+.settings-section {
+  border-left: 3px solid var(--bdr);
+  border-right: 1px solid var(--bdr);
+  border-bottom: 1px solid var(--bdr);
+  border-radius: 0 0 2px 2px;
+}
+
+/* ── Preview route bar ── */
+.preview-route {
+  background: var(--s2);
+  border-left: 2px solid var(--red);
+  padding: 8px 12px;
+  border-radius: 0 2px 2px 0;
+  margin-bottom: 16px;
+  font-size: 12px;
+  color: var(--t2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+}
+.preview-route span { 
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 120px;
+}
+.route-arrow { color: var(--red); font-size: 14px; flex-shrink: 0; }
+
+/* ── Lookup button ── */
+.btn-lookup {
+  white-space: nowrap;
+  height: fit-content;
+  align-self: flex-end;
+}
+
+/* ── Check mark in surcharge ── */
+.toggle-btn .check {
+  width: 16px; height: 16px;
+  border: 1.5px solid var(--t3);
+  border-radius: 2px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px;
+  flex-shrink: 0;
+  transition: all 0.15s;
+  color: transparent;
+}
+.toggle-btn.active .check {
+  background: var(--red);
+  border-color: var(--red);
+  color: white;
+}
+
+/* ── Generate button pulse on hover ── */
+.btn-generate {
+  position: relative;
+  overflow: hidden;
+}
+.btn-generate::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0);
+  transition: background 0.2s;
+}
+.btn-generate:hover::after { background: rgba(255,255,255,0.06); }
+
+/* ── Invoice toggle bar ── */
+.invoice-toggle-bar {
+  margin-top: 0;
+}
+
+/* ── Live dot animation ── */
+@keyframes livePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+.live-dot { animation: livePulse 1.5s infinite; }
+
 </style>
 </head>
 <body>
@@ -1589,7 +1754,20 @@ select.form-input option{background:var(--bg3);}
         </div>
         <div class="panel-body">
           <div class="field-row">
-            <div class="field"><label>Customer / Company Name</label><input type="text" id="custName" placeholder="Jane Smith" list="custList" oninput="onCustInput(this.value);recalc()"></div>
+            <div class="field">
+              <label>Customer / Company Name</label>
+              <div class="cust-search-wrap">
+                <input type="text" id="custName" placeholder="Search or type customer name..." 
+                  autocomplete="off"
+                  oninput="onCustSearch(this.value)" 
+                  onfocus="onCustSearch(this.value)"
+                  onblur="setTimeout(function(){var d=document.getElementById('custDropdown');if(d)d.classList.remove('open');},200)">
+                <div id="custDropdown" class="cust-dropdown"></div>
+              </div>
+              <div id="custFilledBadge" style="display:none;">
+                <span class="cust-filled-badge" onclick="clearCustFill()">&#10003; Customer filled &nbsp;&#215; Clear</span>
+              </div>
+            </div>
             <div class="field"><label>Contact Email</label><input type="email" id="custEmail" placeholder="jane@example.com"></div>
           </div>
           <div class="field-row">
@@ -2357,7 +2535,88 @@ async function saveCust(){
 }
 async function deleteCust(id){if(!confirm('Delete?'))return;await sb.from('customers').delete().eq('id',id);showToast('Deleted','info');await loadCustomers();}
 function updateCustList(){var el=document.getElementById('custList');if(el)el.innerHTML=DB.customers.map(function(c){return '<option value="'+c.name+'">';}).join('');}
-function onCustInput(val){var c=DB.customers.find(function(x){return x.name.toLowerCase()===val.toLowerCase();});if(c){var e=document.getElementById('custEmail');var p=document.getElementById('custPhone');var a=document.getElementById('custAddr');if(e)e.value=c.email||'';if(p)p.value=c.phone||'';if(a)a.value=c.address||'';}}
+function onCustSearch(val) {
+  var drop = document.getElementById('custDropdown');
+  if(!drop) return;
+
+  // Filter customers
+  var q = (val||'').toLowerCase().trim();
+  var matches = DB.customers.filter(function(c) {
+    return !q || 
+      (c.name||'').toLowerCase().includes(q) || 
+      (c.company||'').toLowerCase().includes(q) ||
+      (c.email||'').toLowerCase().includes(q);
+  }).slice(0, 8);
+
+  if(!matches.length || (!q && !val)) {
+    drop.classList.remove('open');
+    drop.innerHTML = '';
+    return;
+  }
+
+  drop.innerHTML = '';
+  matches.forEach(function(c) {
+    var opt = document.createElement('div');
+    opt.className = 'cust-option';
+    opt.innerHTML = 
+      '<div class="cust-option-name">' + escHtml(c.name) + (c.company ? ' <span style="font-weight:400;color:var(--t2);">· ' + escHtml(c.company) + '</span>' : '') + '</div>' +
+      '<div class="cust-option-meta">' +
+        (c.email ? '<span>' + escHtml(c.email) + '</span>' : '') +
+        (c.phone ? '<span>' + escHtml(c.phone) + '</span>' : '') +
+        (c.total_revenue > 0 ? '<span style="color:var(--green);margin-left:auto;">$' + (+c.total_revenue).toFixed(0) + ' rev</span>' : '') +
+      '</div>';
+    opt.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      fillCustFromDB(c);
+    });
+    drop.appendChild(opt);
+  });
+  drop.classList.add('open');
+}
+
+function fillCustFromDB(c) {
+  var drop = document.getElementById('custDropdown');
+  if(drop) drop.classList.remove('open');
+
+  // Fill all quote fields from customer record
+  var nameEl = document.getElementById('custName');
+  if(nameEl) nameEl.value = c.name || '';
+
+  var emailEl = document.getElementById('custEmail');
+  if(emailEl) emailEl.value = c.email || '';
+
+  var phoneEl = document.getElementById('custPhone');
+  if(phoneEl) phoneEl.value = c.phone || '';
+
+  var addrEl = document.getElementById('custAddr');
+  if(addrEl) addrEl.value = c.address || '';
+
+  // Show filled badge
+  var badge = document.getElementById('custFilledBadge');
+  if(badge) badge.style.display = 'block';
+
+  showToast('Loaded: ' + c.name, 'ok');
+  recalc();
+}
+
+function clearCustFill() {
+  ['custName','custEmail','custPhone','custAddr'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if(el) el.value = '';
+  });
+  var badge = document.getElementById('custFilledBadge');
+  if(badge) badge.style.display = 'none';
+  var nameEl = document.getElementById('custName');
+  if(nameEl) nameEl.focus();
+}
+
+function onCustInput(val) {
+  // Legacy: also do search
+  onCustSearch(val);
+  // Auto-fill if exact match
+  var c = DB.customers.find(function(x){ return x.name.toLowerCase() === (val||'').toLowerCase(); });
+  if(c) fillCustFromDB(c);
+}
 
 // ── QUOTE TOOL ────────────────────────────────
 function g(id){return document.getElementById(id);}
@@ -2416,7 +2675,7 @@ function toggleSettings(btn) {
   var open = sec.classList.contains('open');
   sec.classList.toggle('open', !open);
   var arr = btn.querySelector('.arr');
-  if(arr) arr.textContent = open ? '&#9660;' : '&#9650;';
+  if(arr) arr.innerHTML = open ? '&#9660;' : '&#9650;';
 }
 
 function recalc() {
