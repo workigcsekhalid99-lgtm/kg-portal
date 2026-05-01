@@ -27,6 +27,7 @@ function toggleEmailPanel(<!DOCTYPE html>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
+
 :root {
   --bg:       #080808;
   --s1:       #0f0f0f;
@@ -1395,6 +1396,172 @@ body {
 }
 .live-dot { animation: livePulse 1.5s infinite; }
 
+
+
+/* ══ SHIPPING QUOTE — CORE FORM LAYOUT ═══════════════ */
+
+/* Settings panel — closed by default */
+.settings-section {
+  display: none;
+  background: var(--s1);
+  border: 1px solid var(--bdr);
+  border-top: none;
+  padding: 20px 24px;
+}
+.settings-section.open { display: block; }
+
+.settings-toggle {
+  width: 100%;
+  background: var(--s1);
+  border: 1px solid var(--bdr);
+  border-left: 3px solid var(--red);
+  padding: 13px 18px;
+  font-family: 'Barlow', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--t2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transition: all 0.15s;
+  border-radius: 2px;
+  text-align: left;
+}
+.settings-toggle:hover { color: var(--text); border-color: var(--red); }
+
+/* 2-column form grid */
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.field-row.single { grid-template-columns: 1fr; }
+.field-row.triple { grid-template-columns: 1fr 1fr 1fr; }
+
+/* Form field flex column */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Labels inside form panels only */
+.panel-body label,
+.settings-section label,
+.invoice-panel label,
+.invoice-toggle-bar + .invoice-panel label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--t2);
+  display: block;
+}
+
+/* Inputs inside form panels */
+.panel-body input,
+.panel-body select,
+.panel-body textarea,
+.settings-section input,
+.settings-section select,
+.settings-section textarea,
+.invoice-panel input,
+.invoice-panel select {
+  font-family: 'Barlow', sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--s2);
+  border: 1px solid var(--bdr);
+  border-radius: 2px;
+  padding: 10px 12px;
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+}
+.panel-body input:focus,
+.panel-body select:focus,
+.settings-section input:focus,
+.settings-section select:focus,
+.invoice-panel input:focus { border-color: var(--red); background: #1a1a1a; }
+
+.panel-body select option,
+.settings-section select option { background: var(--s2); }
+
+.panel-body textarea { resize: vertical; min-height: 68px; }
+
+/* Prefix wrap — $ and % symbols */
+.prefix-wrap { position: relative; }
+.prefix-wrap input { padding-left: 28px; }
+.prefix {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  color: var(--t2);
+  pointer-events: none;
+  font-family: 'Barlow', sans-serif;
+  z-index: 1;
+  line-height: 1;
+}
+
+/* Panel styling */
+.panel {
+  background: var(--s1);
+  border: 1px solid var(--bdr);
+  border-top: 3px solid var(--red);
+  border-radius: 2px;
+  margin-bottom: 20px;
+}
+.panel-header {
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--bdr);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--s2);
+}
+.panel-num {
+  background: var(--red);
+  color: white;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 12px;
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.panel-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+.panel-body { padding: 22px; }
+.section-divider {
+  border: none;
+  border-top: 1px solid var(--bdr);
+  margin: 18px 0;
+}
+
+/* Two-col quote layout */
+.qt-wrap {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 32px;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .qt-wrap { grid-template-columns: 1fr; }
+  .preview-sticky { position: static; }
+}
 
 </style>
 </head>
