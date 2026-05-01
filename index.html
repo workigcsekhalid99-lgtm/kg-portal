@@ -1170,12 +1170,12 @@ select.form-input option{background:var(--bg3);}
       <div class="pane-wrap" style="flex:1;overflow-y:auto;">
 
         <!-- DASH PANE -->
-        <div class="tab-pane active" <div class="tab-pane active" id="pane-dash">
+        <div class="tab-pane active" id="pane-dash">
     <div class="dash-hero">
-      <div class="dash-avatar">JM</div>
+      <div class="dash-avatar" id="dashJobAvatar">KG</div>
       <div class="dash-info" style="flex:1">
-        <div class="dash-name">J. Martinez</div>
-        <div class="dash-route">Route 14 · Norfolk District · Simcoe ON</div>
+        <div class="dash-name" id="dashJobName">No Active Job</div>
+        <div class="dash-route" id="dashJobRoute">Select a job from the dropdown above</div>
         <div class="route-line" id="routeLine">
           <div class="route-stop-pill done">⬤ Depot</div>
           <div class="route-arrow">›</div>
@@ -1272,7 +1272,7 @@ select.form-input option{background:var(--bg3);}
         </div>
 
         <!-- BOL PANE - original from driver app -->
-        <div class="tab-pane" <div class="tab-pane" id="pane-bol">
+        <div class="tab-pane" id="pane-bol">
     <p class="pane-title">BOL Signing</p>
     <p class="pane-sub">Scan, verify and get customer signature</p>
 
@@ -1437,7 +1437,7 @@ select.form-input option{background:var(--bg3);}
   </div></div>
 
         <!-- FUEL PANE - original from driver app -->
-        <div class="tab-pane" <div class="tab-pane" id="pane-fuel">
+        <div class="tab-pane" id="pane-fuel">
     <p class="pane-title">Fuel & Mileage</p>
     <p class="pane-sub">Log fuel stops and track consumption for this trip</p>
 
@@ -1818,40 +1818,46 @@ function toggleChip(el){
 }
 
 function submitBOL() {
-  const name=document.getElementById('b-rname').value.trim();
-  const email=document.getElementById('b-remail').value.trim();
-  if(!name){alert('Please enter the receiver\'s printed name.');return;}
-  if(!email){alert('Please enter the receiver\'s email.');return;}
-  if(!state.hasSig){alert('Please obtain a signature before submitting.');return;}
+  if(!state.hasSig) { showToast('Get customer signature first','err'); return; }
+  var rname  = (document.getElementById('b-rname')||{}).value||'';
+  var remail = (document.getElementById('b-remail')||{}).value||'';
+  if(!rname)  { showToast('Enter receiver name','err'); return; }
 
-  showOverlay('Generating PDF…','Compiling signed BOL');
-  setTimeout(()=>{document.getElementById('oMsg').textContent='Sending POD…';document.getElementById('oSub').textContent='Emailing to '+email;},1300);
-  setTimeout(()=>{
-    hideOverlay();
-    const ref='POD-'+new Date().getFullYear()+'-'+Math.floor(Math.random()*90000+10000);
-    const exceptions=[...document.querySelectorAll('.chip.selected')].map(c=>c.textContent);
-    document.getElementById('podRefNum').textContent=ref;
-    document.getElementById('podDetailList').innerHTML=[
-      {k:'BOL #',v:document.getElementById('b-bol').value||'BOL-2024-7841'},
-      {k:'Consignee',v:document.getElementById('b-consignee').value||'—'},
-      {k:'Received by',v:name+(document.getElementById('b-rtitle').value?' · '+document.getElementById('b-rtitle').value:'')},
-      {k:'Timestamp',v:new Date().toLocaleString('en-CA',{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})},
-      {k:'Exceptions',v:exceptions.length?exceptions.join(', '):'None — clean delivery'},
-      {k:'Photos',v:state.photos+' attached'},
-      {k:'Location',v:'Simcoe, ON (42.8394°N 80.3031°W)'}
-    ].map(r=>`<div class="pod-row"><div class="pod-key">${r.k}</div><div class="pod-val">${r.v}</div></div>`).join('');
-    document.getElementById('podSentActions').innerHTML=`
-      <div class="email-confirm"><span style="font-size:18px;">📧</span><div><div>POD emailed to <strong>${email}</strong></div><div style="font-size:11px;opacity:0.8">Signed PDF attached · ${new Date().toLocaleTimeString('en-CA',{hour:'2-digit',minute:'2-digit'})}</div></div></div>`;
+  var bol = (document.getElementById('b-bol')||{}).value || ('BOL-'+Date.now());
+  var now = new Date();
+  var podRef = 'POD-' + now.getFullYear().toString().slice(2) + String(now.getMonth()+1).padStart(2,'0') + String(now.getDate()).padStart(2,'0') + '-' + Math.floor(Math.random()*9000+1000);
 
-    state.bols.push({bol:document.getElementById('b-bol').value,ts:new Date(),receiver:name,ref});
-    const badge=document.getElementById('bolBadge');
-    const cur=parseInt(badge.textContent)||0;
-    if(cur>0)badge.textContent=cur-1;
-    if(parseInt(badge.textContent)===0)badge.style.display='none';
-    document.getElementById('m-bols').textContent=state.bols.length;
+  // Save BOL record to state
+  state.bols.push({
+    ref: podRef, bol: bol, receiver: rname, email: remail,
+    time: now.toISOString(), quoteId: driverState.quoteId,
+    pickup: driverState.pickupAddress, dropoff: driverState.dropoffAddress
+  });
 
-    bolGo(5);
-  },2600);
+  // Save to Supabase — mark delivery complete
+  if(sb && driverState.quoteId) {
+    sb.from('quotes').update({
+      dispatch_status: 'delivered',
+      status: 'delivered',
+      updated_at: now.toISOString()
+    }).eq('id', driverState.quoteId).then(function() {
+      loadQuotes().then(function(){ populateDispatchSel(); updateBadges(); });
+    });
+  }
+
+  // Show success screen
+  bolGo(5);
+  var podRefEl = document.getElementById('podRefNum');
+  if(podRefEl) podRefEl.textContent = podRef;
+  var detailEl = document.getElementById('podDetailList');
+  if(detailEl) detailEl.innerHTML =
+    '<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line);font-size:12px;"><span style="color:var(--text2);">BOL #</span><strong>'+bol+'</strong></div>' +
+    '<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line);font-size:12px;"><span style="color:var(--text2);">Received by</span><strong>'+escHtml(rname)+'</strong></div>' +
+    '<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line);font-size:12px;"><span style="color:var(--text2);">Customer</span><strong>'+escHtml(driverState.customerName)+'</strong></div>' +
+    '<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line);font-size:12px;"><span style="color:var(--text2);">Route</span><strong>'+(driverState.pickupAddress||'').split(',')[0]+' → '+(driverState.dropoffAddress||'').split(',')[0]+'</strong></div>' +
+    '<div style="display:flex;justify-content:space-between;padding:7px 0;font-size:12px;"><span style="color:var(--text2);">Time</span><strong>'+now.toLocaleString('en-CA')+'</strong></div>';
+
+  showToast('POD submitted — Delivery complete!', 'ok');
 }
 
 function newBOL() {
@@ -2981,16 +2987,38 @@ async function convertToInvoice(id) {
   await sb.from('quotes').update({status:'converted',updated_at:new Date().toISOString()}).eq('id',id);
   showToast('Invoice '+invNum+' created','ok');await Promise.all([loadQuotes(),loadInvoices()]);updateBadges();navTo('invoices');
 }
+
+async function acceptQuote(id) {
+  var r = await sb.from('quotes').update({status:'accepted', updated_at:new Date().toISOString()}).eq('id',id);
+  if(r.error){showToast('Error: '+r.error.message,'err');return;}
+  showToast('Quote accepted — ready for driver','ok');
+  await loadQuotes(); updateBadges(); populateDispatchSel();
+}
 async function dispatchQuote(id){await sb.from('quotes').update({status:'dispatched',dispatch_status:'active',updated_at:new Date().toISOString()}).eq('id',id);showToast('Dispatched to Driver App','ok');await loadQuotes();populateDispatchSel();updateBadges();}
 async function deleteQuote(id){if(!confirm('Delete?'))return;await sb.from('quotes').delete().eq('id',id);showToast('Deleted','info');await loadQuotes();updateBadges();}
 function exportQuotes(){var rows=[['Quote #','Customer','Total','Status','Valid Till','Pickup','Dropoff']];DB.quotes.forEach(function(q){rows.push([q.quote_num,q.customer_name,q.total,q.status,q.valid_till,q.pickup_address,q.dropoff_address]);});dlCsv(rows,'KG_Quotes.csv');}
 
 function populateDispatchSel() {
-  var sel=document.getElementById('dispatchSel');if(!sel)return;
-  var dis=DB.quotes.filter(function(q){return q.status==='dispatched';});
-  sel.innerHTML='<option value="">Load dispatched quote...</option>'+dis.map(function(q){return '<option value="'+q.id+'">'+q.quote_num+' - '+(q.customer_name||'')+'</option>';}).join('');
+  var sel = document.getElementById('dispatchSel');
+  if(!sel) return;
+  // Show quotes that are accepted OR dispatched (ready for driver)
+  var ready = DB.quotes.filter(function(q){
+    return q.status === 'accepted' || q.status === 'dispatched';
+  });
+  var countEl = document.getElementById('dispatchCount');
+  if(countEl) countEl.textContent = ready.length ? ready.length + ' job(s) ready' : 'No jobs ready';
+  sel.innerHTML = '<option value="">-- Select Job --</option>' +
+    ready.map(function(q){
+      var status = q.status === 'accepted' ? '🟡 Accepted' : '🟢 Dispatched';
+      var route = (q.pickup_address ? q.pickup_address.split(',')[0] : '') +
+                  (q.dropoff_address ? ' → ' + q.dropoff_address.split(',')[0] : '');
+      return '<option value="' + q.id + '">' + status + ' | ' + (q.quote_num||'') + ' · ' + (q.customer_name||'') + ' · ' + route + '</option>';
+    }).join('');
 }
-function loadDispatch(id){if(!id)return;var q=DB.quotes.find(function(x){return x.id===id;});if(q)showToast('Route: '+(q.pickup_address||'')+(q.dropoff_address?' to '+q.dropoff_address:''),'ok');}
+function loadDispatch(id) {
+  if(!id) return;
+  loadDriverJob(id);
+}
 
 // ── INVOICES ─────────────────────────────────
 function renderInvoices(data) {
@@ -3088,6 +3116,334 @@ function closeModal(id){var m=document.getElementById(id);if(m)m.style.display='
 function dlCsv(rows,fn){var a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(rows.map(function(r){return r.map(function(v){return'"'+(v||'')+'"';}).join(',');}).join('\n'));a.download=fn;a.click();}
 
 
+
+// ════════════════════════════════════════════
+//  DRIVER ↔ PORTAL BRIDGE
+// ════════════════════════════════════════════
+
+
+function escHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+var driverState = {
+  jobId: null, quoteId: null, customerId: null,
+  customerName: '', pickupAddress: '', dropoffAddress: '',
+  vehicle: '', odoStart: 0, jobLoaded: false
+};
+
+// Called when dispatcher selects a quote from the dropdown
+function loadDriverJob(quoteId) {
+  if(!quoteId) return;
+  // Pull from DB or local cache
+  var doLoad = function(q) {
+    if(!q) { showToast('Quote not found','err'); return; }
+    driverState.jobId         = quoteId;
+    driverState.quoteId       = quoteId;
+    driverState.customerId    = q.customer_id;
+    driverState.customerName  = q.customer_name || '';
+    driverState.pickupAddress = q.pickup_address || '';
+    driverState.dropoffAddress= q.dropoff_address || '';
+    driverState.jobLoaded     = true;
+
+    // Update dash pane hero
+    var jn = document.getElementById('dashJobName');
+    var jr = document.getElementById('dashJobRoute');
+    var ja = document.getElementById('dashJobAvatar');
+    if(jn) jn.textContent = driverState.customerName || 'Active Job';
+    if(jr) jr.textContent = (q.quote_num||'') + ' · ' + (driverState.pickupAddress||'').split(',')[0] + ' → ' + (driverState.dropoffAddress||'').split(',')[0];
+    if(ja) ja.textContent = (driverState.customerName||'KG').slice(0,2).toUpperCase();
+
+    // Show job card
+    var el = document.getElementById('driverJobCard');
+    if(el) {
+      el.style.display = 'block';
+      el.innerHTML =
+        '<div style="background:var(--s2);border:1px solid var(--bdr);border-left:3px solid var(--green);border-radius:2px;padding:16px;">' +
+          '<div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--green);margin-bottom:8px;">Job Ready</div>' +
+          '<div style="font-size:16px;font-weight:700;margin-bottom:6px;">' + escHtml(driverState.customerName) + '</div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">' +
+            '<div style="font-size:12px;color:var(--t2);"><div style="font-weight:700;color:var(--text);margin-bottom:3px;">PICKUP</div>' + escHtml(driverState.pickupAddress) + '</div>' +
+            '<div style="font-size:12px;color:var(--t2);"><div style="font-weight:700;color:var(--text);margin-bottom:3px;">DROPOFF</div>' + escHtml(driverState.dropoffAddress) + '</div>' +
+          '</div>' +
+          '<div style="display:flex;gap:8px;">' +
+            '<span style="font-family:monospace;font-size:11px;background:var(--s3);padding:4px 8px;border-radius:2px;color:var(--t2);">' + escHtml(q.quote_num||'') + '</span>' +
+            '<span style="font-size:11px;color:var(--t2);">Total: <strong style="color:var(--gold);">$' + (+q.total||0).toFixed(2) + '</strong></span>' +
+          '</div>' +
+          '<button class="btn btn-green" onclick="startJob()" style="width:100%;margin-top:14px;font-size:15px;padding:13px;">&#128640; Select Vehicle &amp; Start Job</button>' +
+        '</div>';
+    }
+
+    // Load stops into driver app
+    injectStops(driverState.pickupAddress, driverState.dropoffAddress, driverState.customerName, q.quote_num, q.total);
+    prefillBOL(q);
+
+    // Auto-mark as dispatched
+    if(sb && q.status === 'accepted') {
+      sb.from('quotes').update({status:'dispatched',dispatch_status:'active',updated_at:new Date().toISOString()}).eq('id',quoteId).then(function(){loadQuotes().then(function(){populateDispatchSel();});});
+    }
+    showToast('Job loaded: ' + driverState.customerName, 'ok');
+    switchTab('dash');
+  };
+
+  // Try local cache first, fallback to DB
+  var cached = DB.quotes.find(function(x){ return x.id === quoteId; });
+  if(cached) { doLoad(cached); return; }
+  if(sb) {
+    sb.from('quotes').select('*').eq('id',quoteId).single().then(function(r){ doLoad(r.data); });
+  }
+}
+
+
+function startJob() {
+  var vehicles = ['Ford Transit (KG-01)','Sprinter Van (KG-02)','Box Truck (KG-03)','Cube Van (KG-04)','Pickup Truck (KG-05)'];
+  
+  var ov = document.createElement('div');
+  ov.id = 'vehicleOverlay';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  
+  var box = document.createElement('div');
+  box.style.cssText = 'background:var(--s1);border:1px solid var(--bdr2);border-top:3px solid var(--red);border-radius:4px;padding:28px;width:400px;max-width:90vw;';
+  
+  var title = document.createElement('h2');
+  title.style.cssText = 'font-family:Barlow Condensed,sans-serif;font-size:20px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:20px;';
+  title.textContent = 'Select Vehicle & Start Job';
+  box.appendChild(title);
+
+  // Route summary
+  var routeDiv = document.createElement('div');
+  routeDiv.style.cssText = 'background:var(--s2);border-radius:2px;padding:12px;margin-bottom:16px;font-size:12px;color:var(--t2);';
+  routeDiv.innerHTML = '<div style="font-weight:700;color:var(--text);margin-bottom:4px;">Route</div>' +
+    '<div>FROM: ' + escHtml(driverState.pickupAddress) + '</div>' +
+    '<div>TO: ' + escHtml(driverState.dropoffAddress) + '</div>';
+  box.appendChild(routeDiv);
+
+  // Vehicle select
+  var vLabel = document.createElement('label');
+  vLabel.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--t3);display:block;margin-bottom:6px;';
+  vLabel.textContent = 'Vehicle';
+  box.appendChild(vLabel);
+  
+  var vSel = document.createElement('select');
+  vSel.id = 'vehicleSelect';
+  vSel.style.cssText = 'width:100%;padding:10px;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;font-size:14px;color:var(--text);outline:none;margin-bottom:14px;';
+  vehicles.forEach(function(v){ var opt=document.createElement('option');opt.value=v;opt.textContent=v;vSel.appendChild(opt); });
+  box.appendChild(vSel);
+
+  // Odometer
+  var oLabel = document.createElement('label');
+  oLabel.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--t3);display:block;margin-bottom:6px;';
+  oLabel.textContent = 'Starting Odometer (km)';
+  box.appendChild(oLabel);
+
+  var oInput = document.createElement('input');
+  oInput.id = 'startOdoInput';
+  oInput.type = 'number';
+  oInput.placeholder = 'e.g. 64000';
+  oInput.style.cssText = 'width:100%;padding:10px;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;font-size:14px;color:var(--text);outline:none;margin-bottom:20px;';
+  box.appendChild(oInput);
+
+  // Buttons
+  var btnRow = document.createElement('div');
+  btnRow.style.cssText = 'display:flex;gap:10px;';
+
+  var cancelBtn = document.createElement('button');
+  cancelBtn.className = 'btn btn-secondary';
+  cancelBtn.style.flex = '1';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.onclick = function(){ ov.remove(); };
+  btnRow.appendChild(cancelBtn);
+
+  var goBtn = document.createElement('button');
+  goBtn.className = 'btn btn-green';
+  goBtn.style.cssText = 'flex:2;font-size:15px;';
+  goBtn.innerHTML = '&#128640; Go!';
+  goBtn.onclick = confirmVehicle;
+  btnRow.appendChild(goBtn);
+
+  box.appendChild(btnRow);
+  ov.appendChild(box);
+  document.body.appendChild(ov);
+}
+
+function confirmVehicle() {
+  var v   = (document.getElementById('vehicleSelect')||{}).value||'';
+  var odo = (document.getElementById('startOdoInput')||{}).value||'';
+  if(!v)  { showToast('Select a vehicle first','err'); return; }
+  if(!odo){ showToast('Enter current odometer reading','err'); return; }
+
+  driverState.vehicle  = v;
+  driverState.odoStart = parseInt(odo)||0;
+  state.odoStart   = driverState.odoStart;
+  state.odoCurrent = driverState.odoStart;
+
+  // Remove overlay
+  var ov = document.getElementById('vehicleOverlay');
+  if(ov) ov.remove();
+
+  // Update dash hero stats
+  var vEl = document.getElementById('dashVehicle');
+  if(vEl) vEl.textContent = v;
+  var odoEl = document.getElementById('dashOdoStart');
+  if(odoEl) odoEl.textContent = parseInt(odo).toLocaleString() + ' km';
+  var tsEl = document.querySelector('.dash-ts');
+  if(tsEl) tsEl.textContent = 'Started ' + new Date().toLocaleTimeString('en-CA',{hour:'2-digit',minute:'2-digit'});
+
+  showToast('Vehicle set: ' + v + ' — Good to go!', 'ok');
+
+  // Open Google Maps
+  var pickup  = encodeURIComponent(driverState.pickupAddress||'');
+  var dropoff = encodeURIComponent(driverState.dropoffAddress||'');
+  if(pickup && dropoff) {
+    window.open('https://www.google.com/maps/dir/'+pickup+'/'+dropoff+'/?travelmode=driving', '_blank');
+  }
+
+  switchTab('stops');
+}
+
+function injectStops(pickup, dropoff, custName, quoteNum, total) {
+  // Set driver app state stops
+  state.stops = [
+    {id:1, name:'PICKUP — Khair Group Depot', addr:pickup||'',  dist:0, eta:'', status:'pending', bol:'', km:0, type:'pickup'},
+    {id:2, name:(custName||'Customer')+' (Dropoff)', addr:dropoff||'', dist:0, eta:'', status:'pending', bol:'', km:0, type:'dropoff'}
+  ];
+
+  // Update the route info card in stops pane
+  var ric = document.getElementById('routeInfoCard');
+  if(ric) {
+    ric.style.display = 'block';
+    var fromEl = document.getElementById('routeFromLabel');
+    var toEl   = document.getElementById('routeToLabel');
+    if(fromEl) fromEl.textContent = pickup || '—';
+    if(toEl)   toEl.textContent   = dropoff || '—';
+  }
+
+  // Update the dash pane hero with job info
+  var avatar = document.querySelector('.dash-avatar');
+  var nameEl = document.querySelector('.dash-name');
+  var routeEl= document.querySelector('.dash-route');
+  if(avatar) avatar.textContent = (custName||'KG').slice(0,2).toUpperCase();
+  if(nameEl) nameEl.textContent = custName || 'Active Job';
+  if(routeEl) routeEl.textContent = (quoteNum||'') + ' · ' + (pickup ? pickup.split(',')[0] : '') + ' → ' + (dropoff ? dropoff.split(',')[0] : '');
+
+  // Update route line pills
+  var rl = document.getElementById('routeLine');
+  if(rl) {
+    rl.innerHTML =
+      '<div class="route-stop-pill done">⬤ Depot</div>' +
+      '<div class="route-arrow">›</div>' +
+      '<div class="route-stop-pill current">📦 Pickup</div>' +
+      '<div class="route-arrow">›</div>' +
+      '<div class="route-stop-pill pending">🏁 Dropoff</div>';
+  }
+
+  // Update map callouts
+  var mapFrom = document.getElementById('mapFrom');
+  var mapTo   = document.getElementById('mapTo');
+  if(mapFrom) mapFrom.textContent = pickup ? pickup.split(',')[0] : 'Pickup';
+  if(mapTo)   mapTo.textContent   = dropoff ? dropoff.split(',')[0] : 'Dropoff';
+
+  if(typeof renderStops === 'function') renderStops();
+  if(typeof renderDistLog === 'function') renderDistLog();
+}
+
+function prefillBOL(q) {
+  if(!q) return;
+  // Map to actual BOL field IDs in pane-bol
+  var setField = function(id, val) {
+    var el = document.getElementById(id);
+    if(el) el.value = val || '';
+  };
+  // BOL number auto-generated from quote num
+  setField('b-bol',       'BOL-' + (q.quote_num||'KG').replace('KG-','') );
+  setField('b-po',        q.quote_num || '');
+  // Shipper = Khair Group (us)
+  setField('b-shipper',   'Khair Group');
+  // Consignee = customer
+  setField('b-consignee', q.customer_name || '');
+  // Receiver details (step 4)
+  setField('b-rname',     q.customer_name || '');
+  setField('b-remail',    q.customer_email || '');
+  setField('b-rphone',    q.customer_phone || '');
+  // Notes
+  setField('b-notes',     'Delivery per ' + (q.quote_num||'') + ' from ' + (q.pickup_address||'') + ' to ' + (q.dropoff_address||''));
+  // Update verify panel
+  var setV = function(id, val) { var el=document.getElementById(id); if(el) el.textContent=val||'—'; };
+  setV('v-bol',       'BOL-' + (q.quote_num||'').replace('KG-',''));
+  setV('v-date',      new Date().toLocaleDateString('en-CA'));
+  setV('v-shipper',   'Khair Group');
+  setV('v-consignee', q.customer_name || '—');
+  setV('v-po',        q.quote_num || '—');
+}
+
+function markDeliveryComplete() {
+  if(!driverState.quoteId) { showToast('No active job loaded','err'); return; }
+  if(!confirm('Mark this delivery as complete?')) return;
+  if(!sb) { showToast('Not connected','err'); return; }
+  sb.from('quotes').update({
+    dispatch_status: 'delivered',
+    status: 'converted',
+    updated_at: new Date().toISOString()
+  }).eq('id', driverState.quoteId).then(function(r) {
+    if(r.error) { showToast('Error: ' + r.error.message, 'err'); return; }
+    showToast('Delivery complete! ✓ Converting quote to invoice...', 'ok');
+    // Auto-convert to invoice
+    convertToInvoice(driverState.quoteId);
+    // Reset state
+    driverState = {jobId:null,quoteId:null,customerId:null,customerName:'',pickupAddress:'',dropoffAddress:'',vehicle:'',odoStart:0,jobLoaded:false};
+    var card = document.getElementById('driverJobCard');
+    if(card) card.style.display = 'none';
+    var sel = document.getElementById('dispatchSel');
+    if(sel) sel.value = '';
+    loadQuotes().then(function(){ populateDispatchSel(); updateBadges(); });
+  });
+}
+
+function submitBOL() {
+  var name  = ((document.getElementById('b-rname')||{}).value||'').trim();
+  var email = ((document.getElementById('b-remail')||{}).value||'').trim();
+  var ref   = ((document.getElementById('b-ref')||{}).value||'') || ('BOL-' + Date.now());
+  if(!name)  { alert('Please enter the receiver name.'); return; }
+  if(!state.hasSig) { alert('Please capture the recipient signature first.'); return; }
+
+  var bolData = {
+    ref: ref,
+    receiver: name,
+    receiverEmail: email,
+    timestamp: new Date().toISOString(),
+    quoteId: driverState.quoteId||'',
+    vehicle: driverState.vehicle||''
+  };
+  state.bols.push(bolData);
+
+  // Save BOL ref to Supabase
+  if(sb && driverState.quoteId) {
+    var update = {updated_at: new Date().toISOString()};
+    // Use bol_pickup or bol_dropoff based on current stop
+    var activeStop = (state.stops||[]).find(function(s){ return s.status==='pending' || s.status==='current'; });
+    if(activeStop) {
+      activeStop.status = 'done';
+      activeStop.bol = ref;
+      if(activeStop.type === 'pickup') {
+        update.bol_pickup_ref = ref;
+        update.bol_pickup_signed = new Date().toISOString();
+      } else {
+        update.bol_dropoff_ref = ref;
+        update.bol_dropoff_signed = new Date().toISOString();
+      }
+    }
+    sb.from('quotes').update(update).eq('id', driverState.quoteId).then(function(){});
+    if(typeof renderStops==='function') renderStops();
+  }
+
+  var allDone = (state.stops||[]).every(function(s){ return s.status==='done'; });
+  if(allDone) {
+    showToast('All stops signed! Tap Complete Delivery to finish.', 'ok');
+  } else {
+    showToast('BOL signed: ' + ref, 'ok');
+  }
+  clearSig();
+  switchTab('stops');
+}
+
+
 /* ═══════════════════════════════════════
    STATE
 ══════════════════════════════════════════ */
@@ -3116,7 +3472,7 @@ document.getElementById('tripBadge').textContent = state.tripId;
 /* ═══ TAB SWITCHING ═══ */
 function switchTab(tab) {
   document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('pane-'+tab).classList.add('active');
   document.getElementById('tab-'+tab).classList.add('active');
   if(tab==='stops'){drawMap();renderStops();renderDistLog();}
@@ -3361,42 +3717,7 @@ function toggleChip(el){
   el.classList.toggle('selected');
 }
 
-function submitBOL() {
-  const name=document.getElementById('b-rname').value.trim();
-  const email=document.getElementById('b-remail').value.trim();
-  if(!name){alert('Please enter the receiver\'s printed name.');return;}
-  if(!email){alert('Please enter the receiver\'s email.');return;}
-  if(!state.hasSig){alert('Please obtain a signature before submitting.');return;}
 
-  showOverlay('Generating PDF…','Compiling signed BOL');
-  setTimeout(()=>{document.getElementById('oMsg').textContent='Sending POD…';document.getElementById('oSub').textContent='Emailing to '+email;},1300);
-  setTimeout(()=>{
-    hideOverlay();
-    const ref='POD-'+new Date().getFullYear()+'-'+Math.floor(Math.random()*90000+10000);
-    const exceptions=[...document.querySelectorAll('.chip.selected')].map(c=>c.textContent);
-    document.getElementById('podRefNum').textContent=ref;
-    document.getElementById('podDetailList').innerHTML=[
-      {k:'BOL #',v:document.getElementById('b-bol').value||'BOL-2024-7841'},
-      {k:'Consignee',v:document.getElementById('b-consignee').value||'—'},
-      {k:'Received by',v:name+(document.getElementById('b-rtitle').value?' · '+document.getElementById('b-rtitle').value:'')},
-      {k:'Timestamp',v:new Date().toLocaleString('en-CA',{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})},
-      {k:'Exceptions',v:exceptions.length?exceptions.join(', '):'None — clean delivery'},
-      {k:'Photos',v:state.photos+' attached'},
-      {k:'Location',v:'Simcoe, ON (42.8394°N 80.3031°W)'}
-    ].map(r=>`<div class="pod-row"><div class="pod-key">${r.k}</div><div class="pod-val">${r.v}</div></div>`).join('');
-    document.getElementById('podSentActions').innerHTML=`
-      <div class="email-confirm"><span style="font-size:18px;">📧</span><div><div>POD emailed to <strong>${email}</strong></div><div style="font-size:11px;opacity:0.8">Signed PDF attached · ${new Date().toLocaleTimeString('en-CA',{hour:'2-digit',minute:'2-digit'})}</div></div></div>`;
-
-    state.bols.push({bol:document.getElementById('b-bol').value,ts:new Date(),receiver:name,ref});
-    const badge=document.getElementById('bolBadge');
-    const cur=parseInt(badge.textContent)||0;
-    if(cur>0)badge.textContent=cur-1;
-    if(parseInt(badge.textContent)===0)badge.style.display='none';
-    document.getElementById('m-bols').textContent=state.bols.length;
-
-    bolGo(5);
-  },2600);
-}
 
 function newBOL() {
   state.hasSig=false;state.photos=0;
@@ -3493,630 +3814,6 @@ function endTrip(){
 
 function portalEditLead(el){editLead(el.getAttribute('data-id'));}
 
-// ═══ DRIVER APP JS ═══
-
-/* ═══════════════════════════════════════
-   STATE
-══════════════════════════════════════════ */
-const state = {
-  tripId: 'TRIP-' + Math.floor(Math.random()*9000+1000),
-  odoCurrent: 63969,
-  odoStart: 63842,
-  bols: [],
-  photos: 0,
-  hasSig: false,
-  currentBolStep: 1,
-  fuelLog: [
-    {station:'Shell Tillsonburg',litres:38.4,ppl:1.899,total:72.96,odo:63842,type:'Diesel',time:'2024-11-14 07:12'}
-  ],
-  stops: [
-    {id:1,name:'Norfolk Hardware Supplies',addr:'25 Queensway E, Simcoe ON',dist:0,eta:'09:15',status:'done',bol:'BOL-2024-7840',km:42},
-    {id:2,name:'Simcoe Building Supply',addr:'142 Norfolk St N, Simcoe ON',dist:12,eta:'14:23',status:'active',bol:'BOL-2024-7841',km:12},
-    {id:3,name:'Delhi Agricultural Supply',addr:'75 Main St, Delhi ON',dist:34,eta:'15:10',status:'pending',bol:'BOL-2024-7842',km:34},
-    {id:4,name:'Port Rowan Marine',addr:'12 Bay St, Port Rowan ON',dist:61,eta:'16:40',status:'pending',bol:'BOL-2024-7843',km:27},
-    {id:5,name:'Langton Hardware',addr:'4 Talbot St N, Langton ON',dist:89,eta:'17:30',status:'pending',bol:'BOL-2024-7844',km:28}
-  ]
-};
-
-document.getElementById('tripBadge').textContent = state.tripId;
-
-/* ═══ TAB SWITCHING ═══ */
-function switchTab(tab) {
-  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
-  document.getElementById('pane-'+tab).classList.add('active');
-  document.getElementById('tab-'+tab).classList.add('active');
-  if(tab==='stops'){drawMap();renderStops();renderDistLog();}
-  if(tab==='fuel'){renderFuelHistory();renderFuelChart();}
-  if(tab==='bol'&&state.currentBolStep===4){initSigPad();}
-}
-
-/* ═══ MAP (CANVAS) ═══ */
-function drawMap() {
-  const canvas = document.getElementById('mapCanvas');
-  if(!canvas) return;
-  const W = canvas.parentElement.offsetWidth;
-  canvas.width = W;
-  const H = 260;
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0,0,W,H);
-
-  // dark bg
-  ctx.fillStyle = '#161b22';
-  ctx.fillRect(0,0,W,H);
-
-  // grid lines
-  ctx.strokeStyle = '#21262d';
-  ctx.lineWidth = 1;
-  for(let x=0;x<W;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
-  for(let y=0;y<H;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
-
-  // road-like lines
-  ctx.strokeStyle='#2d333b';ctx.lineWidth=8;
-  ctx.beginPath();ctx.moveTo(0,H*0.55);ctx.bezierCurveTo(W*0.3,H*0.5,W*0.6,H*0.6,W,H*0.45);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(0,H*0.3);ctx.bezierCurveTo(W*0.2,H*0.35,W*0.5,H*0.25,W,H*0.3);ctx.stroke();
-
-  // route points — spread across canvas
-  const pts = [
-    {x:W*0.05,y:H*0.82,s:'done',n:'Depot'},
-    {x:W*0.22,y:H*0.58,s:'done',n:'1'},
-    {x:W*0.42,y:H*0.38,s:'active',n:'2'},
-    {x:W*0.62,y:H*0.52,s:'pending',n:'3'},
-    {x:W*0.78,y:H*0.32,s:'pending',n:'4'},
-    {x:W*0.93,y:H*0.55,s:'pending',n:'5'}
-  ];
-
-  // draw route line
-  ctx.strokeStyle='#2ea043';ctx.lineWidth=2;ctx.setLineDash([6,4]);
-  ctx.beginPath();pts.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));ctx.stroke();
-  ctx.setLineDash([]);
-
-  // draw stops
-  pts.forEach((p,i)=>{
-    const r=i===0?6:10;
-    ctx.beginPath();ctx.arc(p.x,p.y,r+3,0,Math.PI*2);
-    ctx.fillStyle=p.s==='done'?'rgba(46,160,67,0.25)':p.s==='active'?'rgba(31,111,235,0.25)':'rgba(45,51,59,0.5)';
-    ctx.fill();
-    ctx.beginPath();ctx.arc(p.x,p.y,r,0,Math.PI*2);
-    ctx.fillStyle=p.s==='done'?'#2ea043':p.s==='active'?'#1f6feb':'#30363d';
-    ctx.fill();
-    ctx.fillStyle='#fff';ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.font="bold "+i===0?8:11"\+px DM Mono, monospace";
-    ctx.fillText(p.n,p.x,p.y);
-
-    // label
-    if(i>0){
-      ctx.fillStyle=p.s==='done'?'#3fb950':p.s==='active'?'#58a6ff':'#8b949e';
-      ctx.font='10px DM Sans, sans-serif';ctx.textAlign='center';
-      ctx.fillText(state.stops[i-1]?state.stops[i-1].name.split(' ')[0]:'',p.x,p.y+r+12);
-    }
-  });
-
-  // truck icon at active stop
-  const active = pts[2];
-  ctx.font='14px serif';
-  ctx.fillText('🚚',active.x+14,active.y-14);
-}
-
-/* ═══ STOPS ═══ */
-function renderStops() {
-  const el = document.getElementById('stopList');
-  el.innerHTML = state.stops.map(s=>"\n    <div class=\"stop-item\" onclick=\"stopDetail("+s.id"\+)\">\n      <div class=\"stop-num "+s.s").join('');
-}
-
-function renderDistLog() {
-  const segs = [
-    {from:'Depot',to:'Norfolk HW',km:42,time:'48 min',fuel:'~4.2 L'},
-    {from:'Norfolk HW',to:'Simcoe Build',km:12,time:'14 min',fuel:'~1.2 L'},
-    {from:'Simcoe Build',to:'Delhi Ag',km:34,time:'38 min',fuel:'~3.4 L'},
-    {from:'Delhi Ag',to:'Port Rowan',km:27,time:'32 min',fuel:'~2.7 L'},
-    {from:'Port Rowan',to:'Langton HW',km:28,time:'30 min',fuel:'~2.8 L'},
-  ];
-  document.getElementById('distLog').innerHTML = segs.map((s,i)=>"\n    <div style=\"display:flex;justify-content:space-between;align-items:center;padding:9px 0;borde").join('');
-}
-
-function stopDetail(id) {
-  const s = state.stops.find(x=>x.id===id);
-  if(!s) return;
-  // pre-fill BOL and switch
-  document.getElementById('b-bol').value = s.bol;
-  document.getElementById('b-consignee').value = s.name;
-  switchTab('bol');
-}
-
-function updateOdo() {
-  const val = parseInt(document.getElementById('odoInput').value)||state.odoCurrent;
-  state.odoCurrent = val;
-  document.getElementById('odoNow').textContent = val.toLocaleString();
-  document.getElementById('odoTrip').textContent = (val - state.odoStart).toLocaleString();
-  document.getElementById('m-km').textContent = val - state.odoStart;
-}
-
-function addStopModal() { alert('In production: opens add-stop form to add a new delivery location to the route.'); }
-
-/* ═══ BOL FLOW ═══ */
-let sigCanvas, sigCtx, isDrawing=false, lastX=0, lastY=0;
-
-function bolGo(step) {
-  document.querySelectorAll('.bol-screen').forEach(s=>s.classList.remove('active'));
-  document.querySelectorAll('[data-bs]').forEach((n,i)=>{
-    const s = i+1;
-    n.classList.remove('active','done');
-    if(s<step){n.classList.add('done');n.querySelector('.step-dot').textContent='✓';}
-    else if(s===step){n.classList.add('active');n.querySelector('.step-dot').textContent=s;}
-    else{n.querySelector('.step-dot').textContent=s==='5'?'✓':s;}
-  });
-  document.getElementById('bs-'+step).classList.add('active');
-  state.currentBolStep = step;
-  if(step===2) bolPopulateVerify();
-  if(step===4) initSigPad();
-  document.getElementById('appContent').scrollTop=0;
-  window.scrollTo(0,0);
-}
-
-function bolPopulateVerify() {
-  const now = new Date();
-  document.getElementById('v-date').textContent = now.toLocaleDateString('en-CA',{year:'numeric',month:'short',day:'numeric'});
-  document.getElementById('v-bol').textContent = document.getElementById('b-bol').value||'BOL-2024-7841';
-  document.getElementById('v-shipper').textContent = document.getElementById('b-shipper').value||'Acme Distribution Co.';
-  document.getElementById('v-consignee').textContent = document.getElementById('b-consignee').value||'Consignee';
-  document.getElementById('v-po').textContent = document.getElementById('b-po').value||'PO-88324';
-}
-
-function bolHandleFile(e) {
-  const f=e.target.files[0]; if(!f) return;
-  showOverlay('Reading BOL…','Extracting shipment details');
-  setTimeout(()=>{hideOverlay();bolGo(2);},1800);
-}
-function bolCamera() {
-  const inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.capture='camera';
-  inp.onchange=e=>{const f=e.target.files[0];if(!f)return;showOverlay('Scanning…','Extracting BOL fields');setTimeout(()=>{hideOverlay();bolGo(2);},2000);};
-  inp.click();
-}
-
-function bPhotoCapture(idx, label) {
-  const inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.capture='camera';
-  inp.onchange=e=>{
-    const f=e.target.files[0]; if(!f) return;
-    const r=new FileReader();
-    r.onload=ev=>{
-      const slot=document.getElementById('bph-'+idx);
-      slot.innerHTML="<img src=\""+ev.target.result"\+\"><button class=\"rm\" onclick=\"clearBPhoto("+idx"\+,'"+label"\+',";
-      state.photos++;
-    };
-    r.readAsDataURL(f);
-  };
-  inp.click();
-}
-function clearBPhoto(idx,label,evt) {
-  evt.stopPropagation();
-  const icons=['📷','📷','📷','⚠️'];
-  const labels=['Front of load','Side view','Location','Damage'];
-  const slot=document.getElementById('bph-'+idx);
-  slot.innerHTML="<div style=\"font-size:20px;\">"+icons[idx]"\+</div><div class=\"slot-lbl\">"+labels[idx]"\+</div>";
-  slot.onclick=()=>bPhotoCapture(idx,label);
-  state.photos=Math.max(0,state.photos-1);
-}
-
-function initSigPad() {
-  sigCanvas = document.getElementById('sigCanvas');
-  if(!sigCanvas) return;
-  sigCanvas.width = sigCanvas.parentElement.offsetWidth - 4;
-  sigCtx = sigCanvas.getContext('2d');
-  sigCtx.strokeStyle='#111';sigCtx.lineWidth=2.5;sigCtx.lineCap='round';sigCtx.lineJoin='round';
-
-  const events = [
-    ['mousedown',e=>startD(e.offsetX,e.offsetY)],
-    ['mousemove',e=>{if(isDrawing)doD(e.offsetX,e.offsetY);}],
-    ['mouseup',()=>{isDrawing=false;}],
-    ['touchstart',e=>{e.preventDefault();const t=e.touches[0],r=sigCanvas.getBoundingClientRect();startD(t.clientX-r.left,t.clientY-r.top);},{passive:false}],
-    ['touchmove',e=>{e.preventDefault();const t=e.touches[0],r=sigCanvas.getBoundingClientRect();if(isDrawing)doD(t.clientX-r.left,t.clientY-r.top);},{passive:false}],
-    ['touchend',()=>{isDrawing=false;}]
-  ];
-  // remove old listeners by cloning
-  const nc=sigCanvas.cloneNode(true);
-  sigCanvas.parentNode.replaceChild(nc,sigCanvas);
-  sigCanvas=nc; sigCtx=sigCanvas.getContext('2d');
-  sigCtx.strokeStyle='#111';sigCtx.lineWidth=2.5;sigCtx.lineCap='round';sigCtx.lineJoin='round';
-  events.forEach(([ev,fn,opts])=>sigCanvas.addEventListener(ev,fn,opts||{}));
-
-  updateTs();
-  setInterval(updateTs,15000);
-}
-function startD(x,y){isDrawing=true;lastX=x;lastY=y;}
-function doD(x,y){
-  sigCtx.beginPath();sigCtx.moveTo(lastX,lastY);sigCtx.lineTo(x,y);sigCtx.stroke();
-  lastX=x;lastY=y;state.hasSig=true;
-  document.getElementById('sigStatus').textContent='Signature captured ✓';
-  document.getElementById('sigStatus').style.color='var(--green-light)';
-}
-function clearSig(){
-  sigCtx.clearRect(0,0,sigCanvas.width,sigCanvas.height);
-  state.hasSig=false;
-  document.getElementById('sigStatus').textContent='No signature yet';
-  document.getElementById('sigStatus').style.color='var(--text2)';
-}
-function updateTs(){
-  const el=document.getElementById('tsNow');
-  if(el) el.textContent=new Date().toLocaleString('en-CA',{weekday:'short',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});
-}
-
-function toggleChip(el){
-  el.classList.toggle('selected');
-}
-
-function submitBOL() {
-  const name=document.getElementById('b-rname').value.trim();
-  const email=document.getElementById('b-remail').value.trim();
-  if(!name){alert('Please enter the receiver\'s printed name.');return;}
-  if(!email){alert('Please enter the receiver\'s email.');return;}
-  if(!state.hasSig){alert('Please obtain a signature before submitting.');return;}
-
-  showOverlay('Generating PDF…','Compiling signed BOL');
-  setTimeout(()=>{document.getElementById('oMsg').textContent='Sending POD…';document.getElementById('oSub').textContent='Emailing to '+email;},1300);
-  setTimeout(()=>{
-    hideOverlay();
-    const ref='POD-'+new Date().getFullYear()+'-'+Math.floor(Math.random()*90000+10000);
-    const exceptions=[...document.querySelectorAll('.chip.selected')].map(c=>c.textContent);
-    document.getElementById('podRefNum').textContent=ref;
-    document.getElementById('podDetailList').innerHTML=[
-      {k:'BOL #',v:document.getElementById('b-bol').value||'BOL-2024-7841'},
-      {k:'Consignee',v:document.getElementById('b-consignee').value||'—'},
-      {k:'Received by',v:name+(document.getElementById('b-rtitle').value?' · '+document.getElementById('b-rtitle').value:'')},
-      {k:'Timestamp',v:new Date().toLocaleString('en-CA',{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})},
-      {k:'Exceptions',v:exceptions.length?exceptions.join(', '):'None — clean delivery'},
-      {k:'Photos',v:state.photos+' attached'},
-      {k:'Location',v:'Simcoe, ON (42.8394°N 80.3031°W)'}
-    ].map(r=>"<div class=\"pod-row\"><div class=\"pod-key\">"+r.k"\+</div><div class=\"pod-val\">"+r.v"\+</div></d").join('');
-    document.getElementById('podSentActions').innerHTML="\n      <div class=\"email-confirm\"><span style=\"font-size:18px;\">📧</span><div><div>POD emailed t";
-
-    state.bols.push({bol:document.getElementById('b-bol').value,ts:new Date(),receiver:name,ref});
-    const badge=document.getElementById('bolBadge');
-    const cur=parseInt(badge.textContent)||0;
-    if(cur>0)badge.textContent=cur-1;
-    if(parseInt(badge.textContent)===0)badge.style.display='none';
-    document.getElementById('m-bols').textContent=state.bols.length;
-
-    bolGo(5);
-  },2600);
-}
-
-function newBOL() {
-  state.hasSig=false;state.photos=0;
-  ['b-bol','b-po','b-shipper','b-consignee','b-rname','b-rtitle','b-remail','b-rphone','b-notes'].forEach(id=>{
-    const el=document.getElementById(id);if(el)el.value='';
-  });
-  document.querySelectorAll('.chip.selected').forEach(c=>c.classList.remove('selected'));
-  ['bph-0','bph-1','bph-2','bph-3'].forEach((id,i)=>{
-    const labels=['Front of load','Side view','Location','Damage'];
-    const icons=['📷','📷','📷','⚠️'];
-    const slot=document.getElementById(id);
-    slot.innerHTML="<div style=\"font-size:20px;\">"+icons[i]"\+</div><div class=\"slot-lbl\">"+labels[i]"\+</div>";
-    slot.onclick=()=>bPhotoCapture(i,labels[i]);
-  });
-  bolGo(1);
-}
-
-/* ═══ FUEL ═══ */
-function logFuel() {
-  const station=document.getElementById('f-station').value.trim();
-  const litres=parseFloat(document.getElementById('f-litres').value)||0;
-  const ppl=parseFloat(document.getElementById('f-ppl').value)||0;
-  const total=parseFloat(document.getElementById('f-total').value)||(litres*ppl);
-  const odo=parseInt(document.getElementById('f-odo').value)||state.odoCurrent;
-  const type=document.getElementById('f-type').value;
-  const time=document.getElementById('f-time').value||new Date().toISOString().slice(0,16);
-  if(!station||litres===0){alert('Please enter station name and litres.');return;}
-  state.fuelLog.push({station,litres,ppl,total:parseFloat(total.toFixed(2)),odo,type,time});
-  const totL=state.fuelLog.reduce((a,b)=>a+b.litres,0);
-  const totC=state.fuelLog.reduce((a,b)=>a+b.total,0);
-  const tripKm=state.odoCurrent-state.odoStart||1;
-  document.getElementById('totalFuel').textContent=totL.toFixed(1);
-  document.getElementById('totalCost').textContent='$'+totC.toFixed(2);
-  document.getElementById('fuelEff').textContent=((totL/(tripKm||1))*100).toFixed(1);
-  document.getElementById('m-fuel').textContent=totL.toFixed(1);
-  ['f-station','f-litres','f-ppl','f-total','f-odo'].forEach(id=>{document.getElementById(id).value='';});
-  renderFuelHistory();
-  renderFuelChart();
-  showOverlay('Fuel logged','Updating trip records');
-  setTimeout(hideOverlay,900);
-}
-
-function renderFuelHistory() {
-  document.getElementById('fuelHistory').innerHTML=state.fuelLog.slice().reverse().map(f=>"\n    <div class=\"fuel-row\">\n      <div class=\"fuel-icon\">⛽</div>\n      <div class=\"fuel-info").join('')||'<div style="color:var(--text3);font-size:13px;padding:10px 0;">No fuel stops logged yet.</div>';
-}
-
-function renderFuelChart() {
-  const days=['M','T','W','T','F','S','S'];
-  const data=[22,0,38.4,0,0,0,0];
-  const max=Math.max(...data,1);
-  document.getElementById('fuelChart').innerHTML=days.map((d,i)=>"\n    <div class=\"bar-col\">\n      <div class=\"bar-fill\" style=\"height:"+Math.max(4,(data[i]/ma").join('');
-}
-
-/* ═══ UTILS ═══ */
-function showOverlay(msg,sub){
-  document.getElementById('oMsg').textContent=msg;
-  document.getElementById('oSub').textContent=sub;
-  document.getElementById('overlay').classList.add('show');
-}
-function hideOverlay(){document.getElementById('overlay').classList.remove('show');}
-
-function endTrip(){
-  if(!confirm('End this trip and submit the final report?')) return;
-  showOverlay('Closing trip…','Generating trip summary report');
-  setTimeout(()=>{
-    hideOverlay();
-    alert('Trip complete! Well done.');
-  },1200);
-}
-
-/* ═══ INIT ═══ */
-(function init(){
-  // Set datetime-local default
-  const now=new Date();
-  const pad=n=>String(n).padStart(2,'0');
-  const dtStr=""+now.getFullYear()"\+-"+pad(now.getMonth()+1)"\+-"+pad(now.getDate())"\+T"+pad(now.getHours())"\+:"";
-  document.getElementById('f-time').value=dtStr;
-  renderFuelHistory();
-  renderFuelChart();
-
-
-// ═══ PORTAL DRIVER INTEGRATION ═══
-
-// ═══════════════════════════════════════════════════════
-// DRIVER APP - PORTAL INTEGRATION
-// ═══════════════════════════════════════════════════════
-
-var driverState = {
-  jobId: null,
-  quoteId: null,
-  customerId: null,
-  customerName: '',
-  pickupAddress: '',
-  dropoffAddress: '',
-  vehicle: '',
-  jobLoaded: false
-};
-
-// Called when a job is selected from the dispatch selector
-function loadDriverJob(quoteId) {
-  if(!quoteId) return;
-  var q = (DB.quotes||[]).find(function(x){ return x.id===quoteId; });
-  if(!q) return;
-
-  driverState.jobId      = quoteId;
-  driverState.quoteId    = quoteId;
-  driverState.customerId = q.customer_id;
-  driverState.customerName   = q.customer_name||'';
-  driverState.pickupAddress  = q.pickup_address||'';
-  driverState.dropoffAddress = q.dropoff_address||'';
-  driverState.jobLoaded  = true;
-
-  // Populate the job card on the dash
-  var el = document.getElementById('driverJobCard');
-  if(el) {
-    el.innerHTML =
-      '<div style="background:var(--s2);border:1px solid var(--bdr);border-left:3px solid var(--green);border-radius:2px;padding:14px;">' +
-      '<div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--green);margin-bottom:8px;">Active Job Loaded</div>' +
-      '<div style="font-size:15px;font-weight:700;margin-bottom:6px;">' + escHtml(driverState.customerName) + '</div>' +
-      '<div style="font-size:12px;color:var(--t2);margin-bottom:4px;">&#128197; ' + escHtml(q.quote_num||'') + '</div>' +
-      '<div style="font-size:12px;color:var(--t2);margin-bottom:3px;">&#128197; <strong>FROM:</strong> ' + escHtml(driverState.pickupAddress) + '</div>' +
-      '<div style="font-size:12px;color:var(--t2);margin-bottom:12px;">&#128197; <strong>TO:</strong> ' + escHtml(driverState.dropoffAddress) + '</div>' +
-      '<button class="btn btn-green" onclick="startJob()" style="width:100%;font-size:16px;padding:12px;">&#128640; Select Vehicle & Go</button>' +
-      '</div>';
-    el.style.display = 'block';
-  }
-
-  // Inject pickup/dropoff into the stops pane
-  injectStops(driverState.pickupAddress, driverState.dropoffAddress, driverState.customerName);
-
-  // Pre-fill BOL
-  prefillBOL(q);
-
-  showToast('Job loaded: ' + driverState.customerName, 'ok');
-  switchTab('dash');
-}
-
-function startJob() {
-  var vehicles = ['Ford Transit (KG-01)','Sprinter Van (KG-02)','Box Truck (KG-03)','Pickup Truck (KG-04)'];
-  var sel = '<select id="vehicleSelect" style="width:100%;margin-bottom:12px;padding:10px;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;font-size:14px;color:var(--text);outline:none;">' +
-    '<option value="">-- Select Vehicle --</option>' +
-    vehicles.map(function(v){ return '<option value="' + v + '">' + v + '</option>'; }).join('') +
-    '</select>';
-
-  // Simple vehicle picker overlay
-  var overlay = document.createElement('div');
-  overlay.id = 'vehicleOverlay';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:500;display:flex;align-items:center;justify-content:center;padding:24px;';
-  overlay.innerHTML =
-    '<div style="background:var(--s1);border:1px solid var(--bdr2);border-radius:4px;padding:28px;max-width:380px;width:100%;">' +
-    '<h3 style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;text-transform:uppercase;margin-bottom:16px;">Select Vehicle</h3>' +
-    sel +
-    '<div style="margin-bottom:12px;">' +
-    '<label style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--t3);display:block;margin-bottom:5px;">Starting Odometer (km)</label>' +
-    '<input type="number" id="startOdoInput" placeholder="e.g. 63969" style="width:100%;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;padding:9px 12px;font-size:14px;color:var(--text);outline:none;">' +
-    '</div>' +
-    '<div style="display:flex;gap:10px;">' +
-    '<button class="btn btn-secondary" style="flex:1;" onclick="document.getElementById('vehicleOverlay').remove()">Cancel</button>' +
-    '<button class="btn btn-green" style="flex:2;" onclick="confirmVehicle()">&#128640; Go</button>' +
-    '</div></div>';
-  document.body.appendChild(overlay);
-}
-
-function confirmVehicle() {
-  var v  = document.getElementById('vehicleSelect').value;
-  var odo = document.getElementById('startOdoInput').value;
-  if(!v)  { showToast('Please select a vehicle','err'); return; }
-  if(!odo){ showToast('Please enter odometer reading','err'); return; }
-
-  driverState.vehicle = v;
-  state.odoStart    = parseInt(odo)||state.odoStart;
-  state.odoCurrent  = state.odoStart;
-  state.tripId      = 'TRIP-' + driverState.quoteId.slice(0,8).toUpperCase();
-
-  document.getElementById('vehicleOverlay').remove();
-
-  // Update dash display
-  var vEl = document.getElementById('driverVehicleLabel');
-  if(vEl) vEl.textContent = v;
-
-  // Update odo display
-  var odoEl = document.getElementById('d-odo-current');
-  if(odoEl) odoEl.textContent = state.odoCurrent.toLocaleString();
-  var odoStartEl = document.getElementById('d-odo-start');
-  if(odoStartEl) odoStartEl.textContent = state.odoStart.toLocaleString();
-
-  // Open maps for navigation
-  var url = 'https://www.google.com/maps/dir/' +
-    encodeURIComponent(driverState.pickupAddress) + '/' +
-    encodeURIComponent(driverState.dropoffAddress);
-  window.open(url, '_blank');
-
-  showToast('Trip started with ' + v, 'ok');
-  switchTab('stops');
-
-  // Mark quote as in-transit in Supabase
-  if(sb && driverState.quoteId) {
-    sb.from('quotes').update({
-      dispatch_status: 'in_transit',
-      updated_at: new Date().toISOString()
-    }).eq('id', driverState.quoteId).then(function(){});
-  }
-}
-
-function injectStops(pickup, dropoff, custName) {
-  // Build the stops list showing pickup and dropoff
-  state.stops = [
-    {id:1, name:'PICKUP', addr:pickup,  dist:0,  eta:'',  status:'pending', bol:'', km:0, type:'pickup'},
-    {id:2, name:custName+' (Dropoff)', addr:dropoff, dist:0, eta:'', status:'pending', bol:'', km:0, type:'dropoff'}
-  ];
-
-  // Update the route distance display
-  if(driverState.pickupAddress && driverState.dropoffAddress) {
-    var distEl = document.getElementById('routeTotalDist');
-    if(distEl) distEl.textContent = 'Route loaded';
-  }
-
-  renderStops();
-}
-
-function prefillBOL(q) {
-  // Pre-fill BOL fields if they exist
-  var shipperEl = document.getElementById('b-sname');
-  if(shipperEl) shipperEl.value = 'Khair Group';
-  var shipperAddrEl = document.getElementById('b-saddr');
-  if(shipperAddrEl) shipperAddrEl.value = q.pickup_address||'';
-  var receiverEl = document.getElementById('b-rname');
-  if(receiverEl) receiverEl.value = q.customer_name||'';
-  var receiverAddrEl = document.getElementById('b-raddr');
-  if(receiverAddrEl) receiverAddrEl.value = q.dropoff_address||'';
-  var notesEl = document.getElementById('b-notes');
-  if(notesEl) notesEl.value = 'Quote Ref: ' + (q.quote_num||'');
-  // Set BOL number
-  var bolNumEl = document.getElementById('b-bolnum');
-  if(bolNumEl) bolNumEl.value = 'BOL-' + (q.quote_num||Date.now()).toString().replace('KG-','');
-}
-
-function markDeliveryComplete() {
-  if(!driverState.quoteId) { showToast('No active job','err'); return; }
-  if(!confirm('Mark this delivery as complete?')) return;
-
-  // Update quote status in Supabase
-  if(sb) {
-    sb.from('quotes').update({
-      dispatch_status: 'delivered',
-      status: 'converted',
-      updated_at: new Date().toISOString()
-    }).eq('id', driverState.quoteId);
-  }
-
-  // Update stop status
-  state.stops.forEach(function(s){ s.status='done'; });
-  renderStops();
-  showToast('Delivery marked complete!', 'ok');
-
-  // Reset job
-  driverState.jobLoaded = false;
-  driverState.jobId = null;
-
-  // Refresh portal data
-  setTimeout(refreshAll, 500);
-}
-
-function populateDispatchSel() {
-  var sel = document.getElementById('dispatchSel');
-  if(!sel) return;
-  // Show quotes that are accepted or dispatched
-  var ready = (DB.quotes||[]).filter(function(q){
-    return q.status==='accepted' || q.status==='dispatched' || q.dispatch_status==='active';
-  });
-  sel.innerHTML = '<option value="">-- Select Job --</option>' +
-    ready.map(function(q){
-      var from = q.pickup_address?(q.pickup_address.split(',')[0]):'';
-      var to   = q.dropoff_address?(q.dropoff_address.split(',')[0]):'';
-      return '<option value="' + q.id + '">' +
-        escHtml(q.quote_num) + ' | ' + escHtml(q.customer_name||'') +
-        (from?' | '+from:'') + (to?' &rarr; '+to:'') +
-        '</option>';
-    }).join('');
-  // Show count
-  var countEl = document.getElementById('dispatchCount');
-  if(countEl) countEl.textContent = ready.length + ' job' + (ready.length!==1?'s':'') + ' ready';
-}
-
-function loadDispatch(id) {
-  if(id) loadDriverJob(id);
-}
-
-// Override renderStops to use our injected state
-function renderStops() {
-  var list = document.getElementById('stopList');
-  if(!list) return;
-  if(!state.stops || state.stops.length===0) {
-    list.innerHTML = '<div style="text-align:center;padding:32px;color:var(--t3);font-size:13px;">No stops loaded. Select a job from the Driver App tab.</div>';
-    return;
-  }
-  list.innerHTML = state.stops.map(function(s,i){
-    var icon = s.type==='pickup'?'&#128197;':'&#128205;';
-    var statusColor = s.status==='done'?'var(--green)':s.status==='active'?'var(--gold)':'var(--t3)';
-    var statusLabel = s.status==='done'?'Delivered':s.status==='active'?'En Route':'Pending';
-    return '<div style="background:var(--s2);border:1px solid var(--bdr);border-left:3px solid '+statusColor+';border-radius:2px;padding:12px;margin-bottom:8px;">' +
-      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
-        '<span style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;">' + icon + ' Stop '+(i+1)+': ' + escHtml(s.name) + '</span>' +
-        '<span style="font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;padding:2px 7px;border-radius:2px;background:'+statusColor+'22;color:'+statusColor+';">'+statusLabel+'</span>' +
-      '</div>' +
-      '<div style="font-size:12px;color:var(--t2);margin-bottom:8px;">'+escHtml(s.addr)+'</div>' +
-      '<div style="display:flex;gap:8px;">' +
-        '<button class="btn btn-secondary btn-sm" onclick="window.open('https://www.google.com/maps/search/'+encodeURIComponent(''+escHtml(s.addr)+''),'_blank')" style="font-size:11px;">&#128506; Navigate</button>' +
-        (s.status!=='done'?'<button class="btn btn-green btn-sm" onclick="markStopDone('+s.id+')" style="font-size:11px;">&#10003; Mark Done</button>':'') +
-        '<button class="btn btn-gold btn-sm" onclick="switchTab('bol')" style="font-size:11px;">&#128203; Sign BOL</button>' +
-      '</div>' +
-    '</div>';
-  }).join('');
-}
-
-function markStopDone(stopId) {
-  var s = state.stops.find(function(x){ return x.id===stopId; });
-  if(s) {
-    s.status = 'done';
-    renderStops();
-    showToast('Stop marked complete', 'ok');
-    // If all done, prompt to complete trip
-    if(state.stops.every(function(x){ return x.status==='done'; })) {
-      setTimeout(function(){
-        if(confirm('All stops complete! Mark delivery as delivered?')) markDeliveryComplete();
-      }, 500);
-    }
-  }
-}
-
-
-function openFullRoute() {
-  if(driverState.pickupAddress && driverState.dropoffAddress) {
-    window.open("https://www.google.com/maps/dir/" + encodeURIComponent(driverState.pickupAddress) + "/" + encodeURIComponent(driverState.dropoffAddress), "_blank");
-  }
-}
-
-</script>
+// ═══ DRIVER APP JS ═══</script>
 </body>
 </html>
