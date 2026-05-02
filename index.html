@@ -4336,7 +4336,7 @@ function startJob() {
   var vehicles = ['Ford Transit (KG-01)','Sprinter Van (KG-02)','Box Truck (KG-03)','Cube Van (KG-04)','Pickup Truck (KG-05)'];
   
   var ov = document.createElement('div');
-  ov.id = 'vehicleOverlay';
+  ov.id = 'vehicleModal';
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;';
   
   var box = document.createElement('div');
@@ -4362,7 +4362,7 @@ function startJob() {
   box.appendChild(vLabel);
   
   var vSel = document.createElement('select');
-  vSel.id = 'vehicleSelect';
+  vSel.id = 'driverVehicleSel';
   vSel.style.cssText = 'width:100%;padding:10px;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;font-size:14px;color:var(--text);outline:none;margin-bottom:14px;';
   vehicles.forEach(function(v){ var opt=document.createElement('option');opt.value=v;opt.textContent=v;vSel.appendChild(opt); });
   box.appendChild(vSel);
@@ -4374,7 +4374,7 @@ function startJob() {
   box.appendChild(oLabel);
 
   var oInput = document.createElement('input');
-  oInput.id = 'startOdoInput';
+  oInput.id = 'driverOdoStart';
   oInput.type = 'number';
   oInput.placeholder = 'e.g. 64000';
   oInput.style.cssText = 'width:100%;padding:10px;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;font-size:14px;color:var(--text);outline:none;margin-bottom:20px;';
