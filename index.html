@@ -5386,58 +5386,64 @@ function completeDelivery() {
 }
 
 // ── POD PDF ───────────────────────────────────────────────────────────
-function generatePODPDF(docObj) {
-  // If docObj provided, we're appending POD pages to an existing invoice doc.
-  // Otherwise generate standalone POD.
+function generatePODPDF(docObj, tripSnapshot) {
   var standalone = !docObj;
   var jsPDFCls = window.jspdf && window.jspdf.jsPDF;
   if(standalone && !jsPDFCls) { showToast('PDF library not loaded','err'); return null; }
 
   var doc = standalone ? new jsPDFCls({ unit:'pt', format:'letter', orientation:'portrait' }) : docObj;
-  var job = driverJob || {};
-  var pu  = bolStore.pickup;
-  var dl  = bolStore.dropoff;
+
+  // Use live state OR a snapshot (for regenerating from trip history)
+  var job = (tripSnapshot && tripSnapshot.driverJob_snapshot) || driverJob || {};
+  var pu  = (tripSnapshot && tripSnapshot.bolStore_snapshot && tripSnapshot.bolStore_snapshot.pickup)  || bolStore.pickup;
+  var dl  = (tripSnapshot && tripSnapshot.bolStore_snapshot && tripSnapshot.bolStore_snapshot.dropoff) || bolStore.dropoff;
+
   var now = new Date();
   var fmtD = function(ts){ return (ts?new Date(ts):now).toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'}); };
   var fmtT = function(ts){ return (ts?new Date(ts):now).toLocaleString('en-CA'); };
 
-  // ── Shared constants matching invoice style ──────────────────────────
-  var PL=62, PR=590, PW=652, PH=792;
-  var sf = function(r,g,b){ doc.setFillColor(r,g,b); };
-  var ss = function(r,g,b){ doc.setDrawColor(r,g,b); };
-  var st = function(r,g,b){ doc.setTextColor(r,g,b); };
+  // ── Constants — white-theme matching invoice ─────────────────────────
+  var PL=62, PR=590, PH=792;
+  var sf=function(r,g,b){ doc.setFillColor(r,g,b); };
+  var ss=function(r,g,b){ doc.setDrawColor(r,g,b); };
+  var st=function(r,g,b){ doc.setTextColor(r,g,b); };
   var RED=[204,31,31], BLK=[15,15,15], MGR=[120,120,120],
-      DGR=[50,50,50],  LGR=[220,220,220], WHT=[255,255,255],
-      VLG=[245,245,245], GOLD=[230,168,23], BLUE=[52,152,219], GREEN_C=[44,160,100];
+      DGR=[50,50,50],  LGR=[220,220,220],
+      VLG=[245,245,245], GOLD=[230,168,23],
+      BLUE=[52,152,219], GREEN_C=[44,160,100];
 
-  var cell = function(x,y,w,h,fill){
+  var cell=function(x,y,w,h,fill){
     if(fill){ sf.apply(null,fill); doc.rect(x,y,w,h,'F'); }
     ss.apply(null,LGR); doc.setLineWidth(0.4);
     doc.line(x,y,x+w,y); doc.line(x+w,y,x+w,y+h);
     doc.line(x+w,y+h,x,y+h); doc.line(x,y+h,x,y);
   };
 
-  // ── Add new page if appending to invoice ─────────────────────────────
   if(!standalone) doc.addPage();
 
-  // ── HEADER — matches invoice: logo left, title right ─────────────────
-  try{ doc.addImage(LOGO_DATA_URI,'PNG',PL,20,100,100,undefined,'FAST'); }catch(e){}
+  // ── HEADER: logo left, "POD" title right (smaller, no overlap) ───────
+  try{ doc.addImage(LOGO_DATA_URI,'PNG',PL,20,90,90,undefined,'FAST'); }catch(e){}
 
-  doc.setFont('helvetica','bold'); doc.setFontSize(48); st.apply(null,LGR);
-  doc.text('PROOF OF DELIVERY', PR, 62, {align:'right'});
+  doc.setFont('helvetica','bold'); doc.setFontSize(36); st.apply(null,LGR);
+  doc.text('POD', PR, 55, {align:'right'});
+
+  doc.setFont('helvetica','normal'); doc.setFontSize(8); st.apply(null,MGR);
+  doc.text('PROOF OF DELIVERY', PR, 70, {align:'right'});
 
   doc.setFont('helvetica','normal'); doc.setFontSize(8.5); st.apply(null,BLK);
   ['33 Osborn Ave','Brantford, ON, CA, N3T 6R1','(647) 709-4052','www.khairgroup.ca']
-    .forEach(function(line,i){ doc.text(line, PL, 132+i*13); });
+    .forEach(function(line,i){ doc.text(line, PL, 122+i*12); });
 
-  // ── META BOX — gold accent, matches invoice meta box ─────────────────
-  var mx=326, my=68, rmh=15, pad=6;
+  // ── META BOX — gold accent left bar ──────────────────────────────────
+  var mx=260, my=20, rmh=16, pad=6;
   var podRef = pu.ref || dl.ref || ('KG-POD-'+Date.now());
+  var vehicleId = job._vehicle || '—';  // e.g. "Ford Transit (KG-01)" or "KG-FV-0002"
   var metaRows = [
-    ['POD #:', podRef],
-    ['QUOTE REF:', job.quote_num||'—'],
-    ['DATE:', fmtD(null)],
-    ['CUSTOMER:', job.customer_name||'—']
+    ['POD #:',       podRef],
+    ['QUOTE REF:',   job.quote_num||'—'],
+    ['DATE:',        fmtD(null)],
+    ['CUSTOMER:',    job.customer_name||'—'],
+    ['VEHICLE ID:',  vehicleId]
   ];
   var bh = metaRows.length*rmh + pad*2;
   sf.apply(null,VLG); doc.rect(mx,my,PR-mx,bh,'F');
@@ -5449,63 +5455,49 @@ function generatePODPDF(docObj) {
     var ry = my+pad+i*rmh+rmh*0.65;
     doc.setFont('helvetica','bold'); doc.setFontSize(8); st.apply(null,BLK);
     doc.text(row[0], mx+10, ry);
-    doc.setFont('helvetica','normal');
-    doc.text(row[1], PR-6, ry, {align:'right'});
+    doc.setFont('helvetica','normal'); doc.setFontSize(8); st.apply(null,BLK);
+    doc.text(String(row[1]), PR-6, ry, {align:'right'});
   });
 
-  // ── VEHICLE / DRIVER ROW ──────────────────────────────────────────────
-  var infoY = my+bh+16;
-  var vx=326, vw2=(PR-326)/2;
-  [['VEHICLE', job._vehicle||'—'], ['DRIVER', 'Khair Group Driver']].forEach(function(pair,i){
-    var x = vx + i*vw2;
-    doc.setFont('helvetica','bold'); doc.setFontSize(8); st.apply(null,MGR);
-    doc.text(pair[0], x, infoY);
-    doc.setFont('helvetica','normal'); doc.setFontSize(8.5); st.apply(null,BLK);
-    doc.text(pair[1], x, infoY+13);
-  });
+  var addrY = Math.max(my+bh+20, 186);
 
-  // ── ADDRESSES — two columns like invoice bill-to ──────────────────────
-  var addrY = Math.max(infoY+32, 238);
-
-  // Section label
-  doc.setFont('helvetica','bold'); doc.setFontSize(8); st.apply(null,MGR);
-  doc.text('PICKUP', PL, addrY);
-  doc.text('DELIVERY', PL+(PR-PL)/2+10, addrY);
-  addrY += 6;
-
+  // ── PICKUP / DELIVERY BOXES ───────────────────────────────────────────
   var halfW = (PR-PL-10)/2;
-  // Pickup box
-  sf.apply(null,VLG); doc.rect(PL, addrY, halfW, 56, 'F');
-  ss.apply(null,BLUE); doc.setLineWidth(2);
-  doc.line(PL, addrY, PL, addrY+56);
-  ss.apply(null,LGR); doc.setLineWidth(0.4);
-  doc.line(PL, addrY, PL+halfW, addrY); doc.line(PL+halfW, addrY, PL+halfW, addrY+56);
-  doc.line(PL+halfW, addrY+56, PL, addrY+56);
 
-  doc.setFont('helvetica','bold'); doc.setFontSize(9); st.apply(null,BLK);
-  doc.text(pu.shipper||'Khair Group', PL+8, addrY+16);
+  ['PICKUP','DELIVERY'].forEach(function(lbl,idx2){
+    var ox = idx2===0 ? PL : PL+halfW+10;
+    doc.setFont('helvetica','bold'); doc.setFontSize(7.5); st.apply(null,MGR);
+    doc.text(lbl, ox, addrY);
+  });
+  addrY += 5;
+
+  // Pickup box
+  var boxH = 60;
+  sf.apply(null,VLG); doc.rect(PL, addrY, halfW, boxH, 'F');
+  ss.apply(null,BLUE); doc.setLineWidth(2); doc.line(PL,addrY,PL,addrY+boxH);
+  ss.apply(null,LGR); doc.setLineWidth(0.4);
+  doc.line(PL,addrY,PL+halfW,addrY); doc.line(PL+halfW,addrY,PL+halfW,addrY+boxH); doc.line(PL+halfW,addrY+boxH,PL,addrY+boxH);
+  doc.setFont('helvetica','bold'); doc.setFontSize(9.5); st.apply(null,BLK);
+  doc.text(pu.shipper||'Khair Group', PL+10, addrY+16);
   doc.setFont('helvetica','normal'); doc.setFontSize(8); st.apply(null,DGR);
-  var puAddrLines = doc.splitTextToSize(pu.shipperAddr||job.pickup_address||'—', halfW-16);
-  puAddrLines.slice(0,3).forEach(function(ln,i){ doc.text(ln, PL+8, addrY+28+i*10); });
+  var puLines = doc.splitTextToSize(pu.shipperAddr||job.pickup_address||'—', halfW-20);
+  puLines.slice(0,3).forEach(function(ln,i){ doc.text(ln, PL+10, addrY+28+i*10); });
 
   // Delivery box
   var dx = PL+halfW+10;
-  sf.apply(null,VLG); doc.rect(dx, addrY, halfW, 56, 'F');
-  ss.apply(null,GREEN_C); doc.setLineWidth(2);
-  doc.line(dx, addrY, dx, addrY+56);
+  sf.apply(null,VLG); doc.rect(dx, addrY, halfW, boxH, 'F');
+  ss.apply(null,GREEN_C); doc.setLineWidth(2); doc.line(dx,addrY,dx,addrY+boxH);
   ss.apply(null,LGR); doc.setLineWidth(0.4);
-  doc.line(dx, addrY, dx+halfW, addrY); doc.line(dx+halfW, addrY, dx+halfW, addrY+56);
-  doc.line(dx+halfW, addrY+56, dx, addrY+56);
-
-  doc.setFont('helvetica','bold'); doc.setFontSize(9); st.apply(null,BLK);
-  doc.text(dl.receiver||job.customer_name||'—', dx+8, addrY+16);
+  doc.line(dx,addrY,dx+halfW,addrY); doc.line(dx+halfW,addrY,dx+halfW,addrY+boxH); doc.line(dx+halfW,addrY+boxH,dx,addrY+boxH);
+  doc.setFont('helvetica','bold'); doc.setFontSize(9.5); st.apply(null,BLK);
+  doc.text(dl.receiver||job.customer_name||'—', dx+10, addrY+16);
   doc.setFont('helvetica','normal'); doc.setFontSize(8); st.apply(null,DGR);
-  var dlAddrLines = doc.splitTextToSize(dl.receiverAddr||job.dropoff_address||'—', halfW-16);
-  dlAddrLines.slice(0,3).forEach(function(ln,i){ doc.text(ln, dx+8, addrY+28+i*10); });
+  var dlLines = doc.splitTextToSize(dl.receiverAddr||job.dropoff_address||'—', halfW-20);
+  dlLines.slice(0,3).forEach(function(ln,i){ doc.text(ln, dx+10, addrY+28+i*10); });
 
-  addrY += 70;
+  addrY += boxH+16;
 
-  // ── GOODS TABLE ROW ───────────────────────────────────────────────────
+  // ── GOODS TABLE ───────────────────────────────────────────────────────
   var cX=[PL,280,420,505,PR];
   var cW=[cX[1]-cX[0],cX[2]-cX[1],cX[3]-cX[2],cX[4]-cX[3]];
   var HH=20, RH=22;
@@ -5515,107 +5507,89 @@ function generatePODPDF(docObj) {
     doc.text(h, cX[i]+4, addrY+HH*0.65);
   });
   addrY += HH;
-  [pu.desc||dl.desc||'Freight delivery',
-   pu.weight||dl.weight||'—',
-   pu.pieces||dl.pieces||'—',
-   pu.ref||dl.ref||'—'].forEach(function(v,i){
+  [pu.desc||dl.desc||'Freight delivery', pu.weight||dl.weight||'—',
+   pu.pieces||dl.pieces||'—', pu.ref||dl.ref||'—'].forEach(function(v,i){
     cell(cX[i],addrY,cW[i],RH,null);
     doc.setFont('helvetica','normal'); doc.setFontSize(8.5); st.apply(null,BLK);
     doc.text(String(v), cX[i]+4, addrY+RH*0.65);
   });
-  addrY += RH+14;
+  addrY += RH+18;
 
-  // ── SIGNATURES — two columns matching invoice table style ─────────────
+  // ── SIGNATURES ────────────────────────────────────────────────────────
   doc.setFont('helvetica','bold'); doc.setFontSize(9); st.apply(null,BLK);
   doc.text('SIGNATURES', PL, addrY); addrY += 8;
 
-  var sigH = 110;
-  [
-    { label:'PICKUP SIGNATURE', color:BLUE, data:pu },
-    { label:'DELIVERY SIGNATURE', color:GREEN_C, data:dl }
-  ].forEach(function(sig, idx2) {
+  var sigH = 120;
+  [{label:'PICKUP SIGNATURE',   color:BLUE,    data:pu},
+   {label:'DELIVERY SIGNATURE', color:GREEN_C, data:dl}
+  ].forEach(function(sig, idx2){
     var sx = idx2===0 ? PL : PL+halfW+10;
-    // Box
-    sf.apply(null,VLG); doc.rect(sx, addrY, halfW, sigH, 'F');
-    ss.apply(null, sig.color); doc.setLineWidth(2);
-    doc.line(sx, addrY, sx, addrY+sigH);
-    ss.apply(null,LGR); doc.setLineWidth(0.4);
-    doc.line(sx,addrY,sx+halfW,addrY); doc.line(sx+halfW,addrY,sx+halfW,addrY+sigH);
-    doc.line(sx+halfW,addrY+sigH,sx,addrY+sigH);
-    // Label
-    doc.setFont('helvetica','bold'); doc.setFontSize(7); st.apply(null,sig.color[0]!=null?sig.color:BLK);
+
+    sf.apply(null,VLG); doc.rect(sx,addrY,halfW,sigH,'F');
     doc.setTextColor(sig.color[0],sig.color[1],sig.color[2]);
-    doc.text(sig.label, sx+8, addrY+12);
+    ss.apply(null,sig.color); doc.setLineWidth(2); doc.line(sx,addrY,sx,addrY+sigH);
+    ss.apply(null,LGR); doc.setLineWidth(0.4);
+    doc.line(sx,addrY,sx+halfW,addrY); doc.line(sx+halfW,addrY,sx+halfW,addrY+sigH); doc.line(sx+halfW,addrY+sigH,sx,addrY+sigH);
+
+    doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
+    doc.text(sig.label, sx+10, addrY+14);
 
     if(sig.data && sig.data.signed && sig.data.sigData) {
-      try{ doc.addImage(sig.data.sigData,'PNG', sx+8, addrY+16, halfW-16, 58); }catch(e){}
+      // Draw signature image — white canvas background
+      sf.apply(null,[255,255,255]); doc.rect(sx+10,addrY+18,halfW-20,70,'F');
+      try{
+        doc.addImage(sig.data.sigData,'PNG', sx+10, addrY+18, halfW-20, 70);
+      }catch(e){ console.warn('sig image error',e); }
+      // Signature line
       ss.apply(null,LGR); doc.setLineWidth(0.5);
-      doc.line(sx+8, addrY+78, sx+halfW-8, addrY+78);
-      doc.setFont('helvetica','normal'); doc.setFontSize(7.5); st.apply(null,DGR);
-      doc.text('Signed by: '+(sig.data.receiver||''), sx+8, addrY+89);
-      doc.text(fmtT(sig.data.timestamp), sx+halfW-8, addrY+89, {align:'right'});
+      doc.line(sx+10, addrY+91, sx+halfW-10, addrY+91);
+      doc.setFont('helvetica','bold'); doc.setFontSize(7.5); st.apply(null,DGR);
+      doc.text('Signed by: '+(sig.data.receiver||''), sx+10, addrY+101);
+      doc.setFont('helvetica','normal'); doc.setFontSize(7); st.apply(null,MGR);
+      doc.text(fmtT(sig.data.timestamp), sx+halfW-10, addrY+101, {align:'right'});
       doc.setFont('helvetica','bold'); doc.setFontSize(7); st.apply(null,MGR);
-      doc.text('BOL/REF: '+(sig.data.ref||''), sx+8, addrY+100);
+      doc.text('REF: '+(sig.data.ref||''), sx+10, addrY+111);
       var pc=(sig.data.photos||[]).length;
       if(pc){
         doc.setTextColor(sig.color[0],sig.color[1],sig.color[2]);
-        doc.text(pc+' photo'+(pc>1?'s':'')+' attached', sx+halfW-8, addrY+100, {align:'right'});
+        doc.text(pc+' photo'+(pc>1?'s':'')+' \u2193', sx+halfW-10, addrY+111, {align:'right'});
       }
     } else {
-      doc.setFont('helvetica','normal'); doc.setFontSize(9); st.apply(null,MGR);
-      doc.text('Not signed', sx+8, addrY+sigH/2);
+      doc.setFont('helvetica','normal'); doc.setFontSize(9); st.apply(null,LGR);
+      doc.text('Not signed', sx+10, addrY+sigH*0.55);
     }
   });
-  addrY += sigH+14;
+  addrY += sigH+16;
 
-  // ── PHOTOS — 3 per row, white bg, border ─────────────────────────────
+  // ── PHOTO EVIDENCE ────────────────────────────────────────────────────
   var allPhotos=[];
   (pu.photos||[]).forEach(function(p){ allPhotos.push({data:p, label:'Pickup'}); });
   (dl.photos||[]).forEach(function(p){ allPhotos.push({data:p, label:'Delivery'}); });
 
-  if(allPhotos.length) {
-    if(addrY+40 > PH-80){ doc.addPage(); addrY=62; }
+  if(allPhotos.length){
+    if(addrY+40>PH-80){ doc.addPage(); addrY=62; }
     doc.setFont('helvetica','bold'); doc.setFontSize(9); st.apply(null,BLK);
-    doc.text('PHOTO EVIDENCE', PL, addrY); addrY += 8;
+    doc.text('PHOTO EVIDENCE', PL, addrY); addrY+=8;
 
-    var cols=3, pW2=(PR-PL-cols*8)/cols, pH2=pW2*0.72;
+    var cols=3, pW2=(PR-PL-(cols-1)*8)/cols, pH2=pW2*0.72;
     var px2=PL, py2=addrY, col2=0;
-
     allPhotos.forEach(function(photo){
-      if(py2+pH2+20 > PH-60){ doc.addPage(); py2=62; px2=PL; col2=0; }
-      // Photo cell with border
-      ss.apply(null,LGR); doc.setLineWidth(0.5);
-      doc.rect(px2, py2, pW2, pH2+14, 'S');
+      if(py2+pH2+20>PH-60){ doc.addPage(); py2=62; px2=PL; col2=0; }
+      ss.apply(null,LGR); doc.setLineWidth(0.5); doc.rect(px2,py2,pW2,pH2+14,'S');
       try{ doc.addImage(photo.data,'JPEG',px2,py2,pW2,pH2); }catch(e){
         try{ doc.addImage(photo.data,'PNG',px2,py2,pW2,pH2); }catch(e2){}
       }
-      // Caption bar
-      sf.apply(null,VLG); doc.rect(px2, py2+pH2, pW2, 14, 'F');
+      sf.apply(null,VLG); doc.rect(px2,py2+pH2,pW2,14,'F');
       ss.apply(null,LGR); doc.line(px2,py2+pH2,px2+pW2,py2+pH2);
       doc.setFont('helvetica','bold'); doc.setFontSize(7); st.apply(null,DGR);
       doc.text(photo.label+' Photo', px2+4, py2+pH2+9);
-
       col2++;
       if(col2>=cols){ col2=0; px2=PL; py2+=pH2+22; } else { px2+=pW2+8; }
     });
     addrY = py2+pH2+30;
   }
 
-  // ── TERMS & CONDITIONS ────────────────────────────────────────────────
-  if(addrY+50 > PH-40){ doc.addPage(); addrY=62; }
-  doc.setFont('helvetica','bold'); doc.setFontSize(9); st.apply(null,BLK);
-  doc.text('TERMS & CONDITIONS', PL, addrY); addrY+=13;
-  doc.setFont('helvetica','normal'); doc.setFontSize(7.5); st.apply(null,DGR);
-  ["• Receiver's signature above confirms delivery of the goods described in good order and condition unless otherwise noted.",
-   "• Khair Group is not liable for pre-existing damage or damage not noted at time of delivery.",
-   "• Disputes must be raised within 5 business days of delivery.",
-   "• This document serves as official confirmation of delivery."].forEach(function(t){
-    doc.splitTextToSize(t,PR-PL).forEach(function(ln){
-      if(addrY<PH-40){ doc.text(ln,PL,addrY); addrY+=10; }
-    }); addrY+=2;
-  });
-
-  // ── FOOTER — matches invoice ──────────────────────────────────────────
+  // ── FOOTER ────────────────────────────────────────────────────────────
   ss.apply(null,LGR); doc.setLineWidth(0.5); doc.line(PL,758,PR,758);
   doc.setFont('helvetica','normal'); doc.setFontSize(7); st.apply(null,MGR);
   doc.text('Khair Group  \u00b7  33 Osborn Ave, Brantford, ON  \u00b7  (647) 709-4052  \u00b7  www.khairgroup.ca',
@@ -6237,26 +6211,34 @@ function renderCompletedTrips() {
 function regenerateTripPOD(idx) {
   var trip = (window.completedTrips||[])[idx];
   if(!trip) { showToast('Trip not found','err'); return; }
-  // Temporarily swap bolStore and driverJob with trip data
-  var origJob   = driverJob;
-  var origStore = JSON.parse(JSON.stringify(bolStore));
-
-  driverJob = {
-    id: trip.quote_id, quote_num: trip.quote_num,
-    customer_name: trip.customer_name,
-    pickup_address: trip.pickup_address, dropoff_address: trip.dropoff_address,
-    _vehicle: trip.vehicle, _odo: trip.odo_start
+  // Pass snapshot directly — no need to swap global state
+  var snapshot = {
+    driverJob_snapshot: trip.driverJob_snapshot || {
+      id: trip.quote_id, quote_num: trip.quote_num,
+      customer_name: trip.customer_name,
+      pickup_address: trip.pickup_address,
+      dropoff_address: trip.dropoff_address,
+      _vehicle: trip.vehicle, _odo: trip.odo_start
+    },
+    bolStore_snapshot: trip.bolStore_snapshot || {
+      pickup:  { ref:trip.bol_pickup_ref||'',  receiver:trip.bol_pickup_receiver||'',
+                 sigData:trip.pickup_sig||null,  photos:trip.pickup_photos||[],
+                 timestamp:trip.bol_pickup_signed||null, signed:!!trip.bol_pickup_signed,
+                 shipper:'Khair Group', shipperAddr:trip.pickup_address||'',
+                 receiverAddr:trip.dropoff_address||'', desc:'', weight:'', pieces:'' },
+      dropoff: { ref:trip.bol_dropoff_ref||'', receiver:trip.bol_dropoff_receiver||'',
+                 sigData:trip.dropoff_sig||null, photos:trip.dropoff_photos||[],
+                 timestamp:trip.bol_dropoff_signed||null, signed:!!trip.bol_dropoff_signed,
+                 shipper:'Khair Group', shipperAddr:trip.pickup_address||'',
+                 receiverAddr:trip.dropoff_address||'', desc:'', weight:'', pieces:'' }
+    }
   };
-  bolStore = trip.bolStoreSnapshot || bolStore;
-
-  try { generatePODPDF(null); } catch(e) {
-    showToast('POD error: '+e.message,'err');
-    console.error(e);
+  try {
+    generatePODPDF(null, snapshot);
+  } catch(e) {
+    console.error('POD regen error:', e);
+    showToast('Error generating POD: '+e.message, 'err');
   }
-
-  // Restore
-  driverJob = origJob;
-  bolStore  = origStore;
 }
 
 </script>
