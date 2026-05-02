@@ -2679,6 +2679,8 @@ document.addEventListener('click', function(e) {
     case 'markPaid':         markPaid(id); break;
     case 'genSavedInvPDF':   genSavedInvPDF(id); break;
     case 'deleteInvoice':    deleteInvoice(id); break;
+    case 'emailInvoice':      emailInvoice(id); break;
+    case 'downloadInvWithPOD': downloadInvWithPOD(id); break;
     case 'editVehicle': {
       var vid2 = e.target.closest('[data-vid]') ? e.target.closest('[data-vid]').getAttribute('data-vid') : '';
       openVehicleEditModal(vid2); break;
@@ -3748,24 +3750,222 @@ function loadDispatch(id) {
 }
 
 // ── INVOICES ─────────────────────────────────
+
+function emailInvoice(id) {
+  var inv = DB.invoices.find(function(x){ return x.id===id; });
+  if(!inv) { showToast('Invoice not found','err'); return; }
+
+  var body = buildInvoiceEmailBody(inv);
+  var subj = 'Invoice '+inv.invoice_num+' from Khair Group';
+  var to   = inv.customer_email || '';
+
+  // Remove any existing modal
+  var existing = document.getElementById('invEmailModal');
+  if(existing) existing.remove();
+
+  var overlay = mk('div', { id:'invEmailModal' });
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+
+  var box = mk('div');
+  box.style.cssText = 'background:var(--s1);border:1px solid var(--bdr2);border-top:3px solid var(--blue);border-radius:4px;width:600px;max-width:96vw;max-height:92vh;display:flex;flex-direction:column;';
+
+  // Header
+  var hdr = mk('div'); hdr.className='modal-hdr';
+  var ht  = mk('h2');  ht.textContent='Email Invoice';
+  var hc  = mk('button'); hc.className='modal-x'; hc.innerHTML='&#215;';
+  hc.onclick=function(){ overlay.remove(); };
+  hdr.appendChild(ht); hdr.appendChild(hc);
+  box.appendChild(hdr);
+
+  // Body
+  var mbody = mk('div'); mbody.className='modal-body'; mbody.style.overflowY='auto';
+
+  // To field
+  var toRow = mk('div'); toRow.className='form-row single'; toRow.style.marginBottom='10px';
+  var toField = mk('div'); toField.className='form-field';
+  var toLbl=mk('div'); toLbl.className='form-field';
+  var toLabel=mk('label'); toLabel.textContent='To (Customer Email)';
+  var toInp=mk('input',{id:'invEmailTo',type:'email',value:to});
+  toInp.placeholder='customer@example.com';
+  toInp.style.cssText='width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;font-size:13px;color:var(--text);outline:none;';
+  toField.appendChild(toLabel); toField.appendChild(toInp);
+  toRow.appendChild(toField); mbody.appendChild(toRow);
+
+  // Subject field
+  var subRow=mk('div'); subRow.className='form-row single'; subRow.style.marginBottom='10px';
+  var subField=mk('div'); subField.className='form-field';
+  var subLabel=mk('label'); subLabel.textContent='Subject';
+  var subInp=mk('input',{id:'invEmailSubj',type:'text',value:subj});
+  subInp.style.cssText='width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;font-size:13px;color:var(--text);outline:none;';
+  subField.appendChild(subLabel); subField.appendChild(subInp);
+  subRow.appendChild(subField); mbody.appendChild(subRow);
+
+  // Body preview
+  var bodyLblWrap=mk('div'); bodyLblWrap.style.cssText='margin-bottom:6px;';
+  var bodyLbl=mk('label'); bodyLbl.style.cssText='font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--t3);';
+  bodyLbl.textContent='Email Body — Copy & Paste into your email client';
+  bodyLblWrap.appendChild(bodyLbl); mbody.appendChild(bodyLblWrap);
+
+  var bodyArea=mk('div',{id:'invEmailBodyPreview'});
+  bodyArea.style.cssText='font-family:monospace;font-size:12px;color:var(--t2);background:var(--s2);border:1px solid var(--bdr);border-radius:2px;padding:14px;line-height:1.7;white-space:pre-wrap;max-height:280px;overflow-y:auto;margin-bottom:10px;user-select:all;cursor:text;';
+  bodyArea.textContent = body;
+  mbody.appendChild(bodyArea);
+
+  var note=mk('div');
+  note.style.cssText='font-size:11px;color:var(--t3);margin-bottom:4px;';
+  note.textContent='Click the body above to select all, then Ctrl+C / Cmd+C to copy. Attach the invoice PDF manually.';
+  mbody.appendChild(note);
+
+  box.appendChild(mbody);
+
+  // Footer
+  var foot=mk('div'); foot.className='modal-foot';
+
+  var openMailBtn=mk('button'); openMailBtn.className='btn btn-primary'; openMailBtn.style.cssText='flex:1;';
+  openMailBtn.innerHTML='&#9993; Open in Mail App';
+  openMailBtn.onclick=function(){
+    var t=encodeURIComponent((document.getElementById('invEmailTo')||{}).value||'');
+    var s2=encodeURIComponent((document.getElementById('invEmailSubj')||{}).value||'');
+    var b2=encodeURIComponent(body);
+    window.location.href='mailto:'+t+'?subject='+s2+'&body='+b2;
+  };
+
+  var copyBtn=mk('button'); copyBtn.className='btn btn-secondary'; copyBtn.style.cssText='flex:1;';
+  copyBtn.innerHTML='&#128203; Copy Body';
+  copyBtn.onclick=function(){
+    navigator.clipboard.writeText(body).then(function(){
+      copyBtn.textContent='\u2713 Copied!';
+      setTimeout(function(){ copyBtn.innerHTML='&#128203; Copy Body'; },2000);
+    }).catch(function(){
+      // Fallback: select the text
+      var el=document.getElementById('invEmailBodyPreview');
+      if(el){ var r=document.createRange(); r.selectNode(el); window.getSelection().removeAllRanges(); window.getSelection().addRange(r); }
+    });
+  };
+
+  var closeBtn=mk('button'); closeBtn.className='btn btn-secondary';
+  closeBtn.textContent='Close';
+  closeBtn.onclick=function(){ overlay.remove(); };
+
+  foot.appendChild(openMailBtn);
+  foot.appendChild(copyBtn);
+  foot.appendChild(closeBtn);
+  box.appendChild(foot);
+
+  overlay.appendChild(box);
+  overlay.onclick=function(e){ if(e.target===overlay) overlay.remove(); };
+  document.body.appendChild(overlay);
+
+  // Auto-select body on click
+  bodyArea.onclick=function(){
+    var r=document.createRange(); r.selectNode(bodyArea);
+    window.getSelection().removeAllRanges(); window.getSelection().addRange(r);
+  };
+}
+
+function downloadInvWithPOD(id) {
+  var inv = DB.invoices.find(function(x){ return x.id===id; });
+  if(!inv) { showToast('Invoice not found','err'); return; }
+
+  // Find matching trip (by quote_id or invoice_num)
+  var trip = (window.completedTrips||[]).find(function(t){
+    return t.quote_id===inv.quote_id || t.invoice_num===inv.invoice_num;
+  });
+  if(!trip) { showToast('No POD found for this invoice','err'); return; }
+
+  showToast('Generating Invoice + POD...','inf');
+
+  // Step 1: generate invoice PDF
+  setTimeout(function(){
+    try {
+      // Pre-fill shipping form for invoice
+      var setV=function(id,val){var el=document.getElementById(id);if(el)el.value=val||'';};
+      setV('custName',    inv.customer_name);
+      setV('custEmail',   inv.customer_email);
+      setV('custPhone',   inv.customer_phone);
+      setV('custAddr',    inv.customer_address);
+      setV('addrA',       inv.pickup_address);
+      setV('addrB',       inv.dropoff_address);
+      setV('invoiceNum',  inv.invoice_num);
+      setV('invoiceDueDate', inv.due_date);
+      setV('invoiceTermsNote','Payment due within 30 days. Late payments subject to 5% fee.');
+      setV('companyName','Khair Group');
+      setV('invoicePayRef','khalid@khairgroup.ca');
+      window._invoiceStatus = inv.status==='paid'?'paid':'unpaid';
+      window._discType='flat';
+      window._payMethods={etransfer:true,bank:true,credit:true,cash:false,cheque:false,prepaid:false};
+      try{ recalc(); }catch(e){}
+      generateInvoice();  // downloads KG_Invoice_XXXX.pdf
+    } catch(e) {
+      console.error('Invoice PDF error:',e);
+      showToast('Invoice PDF error: '+e.message,'err');
+    }
+  }, 200);
+
+  // Step 2: generate POD PDF (slight delay so both downloads register)
+  setTimeout(function(){
+    try {
+      var snapshot = {
+        driverJob_snapshot: trip.driverJob_snapshot || {
+          id:trip.quote_id, quote_num:trip.quote_num,
+          customer_name:trip.customer_name,
+          pickup_address:trip.pickup_address,
+          dropoff_address:trip.dropoff_address,
+          _vehicle:trip.vehicle, _odo:trip.odo_start
+        },
+        bolStore_snapshot: trip.bolStore_snapshot || {
+          pickup:{
+            ref:trip.bol_pickup||'', receiver:trip.bol_pickup_receiver||'',
+            sigData:trip.pickup_sig||null, photos:trip.pickup_photos||[],
+            timestamp:trip.bol_pickup_signed||null, signed:!!trip.bol_pickup_signed,
+            shipper:'Khair Group', shipperAddr:trip.pickup_address||'',
+            receiverAddr:trip.dropoff_address||'', desc:'', weight:'', pieces:''
+          },
+          dropoff:{
+            ref:trip.bol_dropoff||'', receiver:trip.bol_dropoff_receiver||'',
+            sigData:trip.dropoff_sig||null, photos:trip.dropoff_photos||[],
+            timestamp:trip.bol_dropoff_signed||null, signed:!!trip.bol_dropoff_signed,
+            shipper:'Khair Group', shipperAddr:trip.pickup_address||'',
+            receiverAddr:trip.dropoff_address||'', desc:'', weight:'', pieces:''
+          }
+        }
+      };
+      generatePODPDF(null, snapshot);  // downloads KG-POD-XXXX.pdf
+    } catch(e) {
+      console.error('POD PDF error:',e);
+      showToast('POD PDF error: '+e.message,'err');
+    }
+    showToast('Invoice + POD downloaded \u2713','ok');
+  }, 900);
+}
 function renderInvoices(data) {
   var items = data||DB.invoices;
   var el = document.getElementById('invoicesCount'); if(el) el.textContent = items.length+' invoices';
   var tbody = document.getElementById('invoicesBody'); if(!tbody) return;
   var today = new Date().toISOString().split('T')[0];
-  if(!items.length){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--t2);">No invoices yet — convert a quote to create one</td></tr>';return;}
+  if(!items.length){
+    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--t2);">No invoices yet — convert a quote to create one</td></tr>';
+    return;
+  }
   tbody.innerHTML = '';
   items.forEach(function(i) {
-    var overdue = i.status === 'overdue' || (i.status === 'unpaid' && i.due_date && i.due_date < today);
+    var overdue = i.status==='overdue' || (i.status==='unpaid' && i.due_date && i.due_date < today);
+    // Check if a completed trip POD exists for this invoice
+    var hasPOD = !!(window.completedTrips||[]).find(function(t){
+      return t.quote_id===i.quote_id || t.invoice_num===i.invoice_num;
+    });
     var tr = document.createElement('tr');
-    tr.innerHTML = '<td style="font-family:monospace;font-size:12px;">'+escHtml(i.invoice_num)+'</td>'+
+    tr.innerHTML =
+      '<td class="mono">'+escHtml(i.invoice_num)+'</td>'+
       '<td><strong>'+escHtml(i.customer_name||'')+'</strong></td>'+
-      '<td style="font-family:monospace;font-size:12px;">'+fmt(i.total||0)+'</td>'+
+      '<td class="mono">'+fmt(i.total||0)+'</td>'+
       '<td style="font-size:11px;color:'+(overdue?'var(--red)':'var(--t2)')+';">'+escHtml(i.due_date||'')+'</td>'+
       '<td>'+mkBadge(i.status)+'</td>'+
       '<td><div style="display:flex;gap:4px;flex-wrap:wrap;">'+
-        (i.status!=='paid'?'<button class="btn btn-green btn-sm" data-fn="markPaid" data-id="'+i.id+'">&#10003; Mark Paid</button>':'')+
+        (i.status!=='paid'?'<button class="btn btn-green btn-sm" data-fn="markPaid" data-id="'+i.id+'">&#10003; Paid</button>':'')+
         '<button class="btn btn-gold btn-sm" data-fn="genSavedInvPDF" data-id="'+i.id+'">&#129534; PDF</button>'+
+        '<button class="btn btn-blue btn-sm" data-fn="emailInvoice" data-id="'+i.id+'">&#9993; Email</button>'+
+        (hasPOD?'<button class="btn btn-secondary btn-sm" data-fn="downloadInvWithPOD" data-id="'+i.id+'">&#128206; +POD</button>':'')+
         '<button class="btn btn-secondary btn-sm" data-fn="deleteInvoice" data-id="'+i.id+'">&#128465;</button>'+
       '</div></td>';
     tbody.appendChild(tr);
@@ -4084,34 +4284,42 @@ function startJob() {
 }
 
 function confirmVehicle() {
-  var vSel    = document.getElementById('driverVehicleSel');
-  var odoEl   = document.getElementById('driverOdoStart');
+  var vSel      = document.getElementById('driverVehicleSel');
+  var odoEl     = document.getElementById('driverOdoStart');
   var purposeEl = document.getElementById('driverMileagePurpose');
 
-  var vid     = (vSel||{}).value||'';
-  var vname   = '';
-  if(vSel && vSel.selectedIndex >= 0) {
-    var opt = vSel.options[vSel.selectedIndex];
-    vname = opt ? (opt.getAttribute('data-name')||opt.textContent||vid) : vid;
+  if(!vSel || !vSel.value) { showToast('Select a vehicle','err'); return; }
+
+  var vid   = vSel.value;
+  var vname = '';
+  var opt   = vSel.options[vSel.selectedIndex];
+
+  // Could be a fleet UUID or a hard-coded name string
+  var fleetVehicle = (window.vehicleFleet||[]).find(function(v){ return v.id === vid; });
+  if(fleetVehicle) {
+    vname = fleetVehicle.name + (fleetVehicle.plate ? ' ('+fleetVehicle.plate+')' : '');
+  } else {
+    // Hard-coded fallback list — value is the display name
+    vname = vid;
+    vid   = '';  // no fleet ID
   }
-  if(!vname) vname = vid; // fallback for hard-coded list
 
   var odoStart = parseInt((odoEl||{}).value)||0;
   var purpose  = (purposeEl||{}).value||'delivery';
 
-  if(!vid)    { showToast('Select a vehicle','err'); return; }
-  if(!odoStart){ showToast('Enter starting odometer','err'); return; }
+  if(!vname)   { showToast('Select a vehicle','err'); return; }
+  if(!odoStart){ showToast('Enter the starting odometer reading','err'); return; }
 
-  // Store on driverJob
   if(driverJob) {
-    driverJob._vehicleId   = vid;
-    driverJob._vehicle     = vname;
-    driverJob._odo         = odoStart;
-    driverJob._odoStart    = odoStart;
-    driverJob._purpose     = purpose;
+    driverJob._vehicleId  = fleetVehicle ? fleetVehicle.id : '';
+    driverJob._vehicle    = vname;
+    driverJob._odo        = odoStart;
+    driverJob._odoStart   = odoStart;
+    driverJob._purpose    = purpose;
   }
 
-  var m = document.getElementById('vehicleModal'); if(m) m.remove();
+  var m = document.getElementById('vehicleModal');
+  if(m) m.remove();
   showToast('Trip started: '+vname+' @ '+odoStart.toLocaleString()+' km','ok');
   setTimeout(openMapPicker, 500);
 }
@@ -6072,84 +6280,193 @@ async function logVehicleKm() {
   renderVehicleKmLog();
   showToast('KM logged: '+dist+' km','ok');
 }
+
+function openOdoUpdateModal(v) {
+  var existing = document.getElementById('odoUpdateModal');
+  if(existing) existing.remove();
+
+  var overlay = mk('div', { id:'odoUpdateModal' });
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+
+  var box = mk('div');
+  box.style.cssText = 'background:var(--s1);border:1px solid var(--bdr2);border-top:3px solid var(--gold);border-radius:4px;padding:26px;width:380px;max-width:92vw;';
+
+  var title = mk('h2');
+  title.style.cssText = 'font-family:"Barlow Condensed",sans-serif;font-size:18px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;';
+  title.textContent = 'Update Odometer';
+  box.appendChild(title);
+
+  var sub = mk('div');
+  sub.style.cssText = 'font-size:12px;color:var(--t2);margin-bottom:18px;';
+  sub.textContent = v.name + (v.plate ? ' · '+v.plate : '') + (v.odo_current ? ' · Currently: '+v.odo_current.toLocaleString()+' km' : '');
+  box.appendChild(sub);
+
+  var lbl = mk('div');
+  lbl.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--t3);margin-bottom:6px;';
+  lbl.textContent = 'New Odometer Reading (km)';
+  box.appendChild(lbl);
+
+  var inp = mk('input', { id:'odoUpdateInput', type:'number', min:'0' });
+  inp.value = v.odo_current || '';
+  inp.placeholder = 'Enter current reading';
+  inp.style.cssText = 'width:100%;padding:12px;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;font-size:16px;color:var(--text);outline:none;margin-bottom:8px;';
+  inp.onfocus = function(){ this.style.borderColor='var(--gold)'; };
+  inp.onblur  = function(){ this.style.borderColor='var(--bdr)'; };
+  box.appendChild(inp);
+
+  var hint = mk('div');
+  hint.style.cssText = 'font-size:11px;color:var(--t3);margin-bottom:18px;';
+  hint.textContent = 'Use this only to set or correct the odometer. Trip completions update it automatically.';
+  box.appendChild(hint);
+
+  var btnRow = mk('div'); btnRow.style.cssText='display:flex;gap:10px;';
+  var cancelBtn = mk('button'); cancelBtn.className='btn btn-secondary'; cancelBtn.style.flex='1';
+  cancelBtn.textContent='Cancel'; cancelBtn.onclick=function(){ overlay.remove(); };
+  var saveBtn = mk('button'); saveBtn.className='btn btn-gold'; saveBtn.style.cssText='flex:2;font-size:14px;';
+  saveBtn.innerHTML='&#128221; Save Odometer';
+  saveBtn.onclick = function(){
+    var newOdo = parseInt((document.getElementById('odoUpdateInput')||{}).value)||0;
+    if(!newOdo){ showToast('Enter a valid odometer reading','err'); return; }
+    if(!sb){ showToast('Not connected','err'); return; }
+    sb.from('fleet_vehicles').update({ odo_current:newOdo, updated_at:new Date().toISOString() }).eq('id',v.id).then(function(r){
+      if(r.error){ showToast('Error: '+r.error.message,'err'); return; }
+      // Update local cache
+      var fv = (window.vehicleFleet||[]).find(function(x){ return x.id===v.id; });
+      if(fv) fv.odo_current = newOdo;
+      overlay.remove();
+      renderVehicleCards();
+      populateActiveVehicleSel();
+      showToast('Odometer updated: '+newOdo.toLocaleString()+' km','ok');
+    });
+  };
+  // Allow Enter key
+  inp.onkeydown = function(e){ if(e.key==='Enter') saveBtn.onclick(); };
+  btnRow.appendChild(cancelBtn); btnRow.appendChild(saveBtn);
+  box.appendChild(btnRow);
+
+  overlay.appendChild(box);
+  overlay.onclick=function(e){ if(e.target===overlay) overlay.remove(); };
+  document.body.appendChild(overlay);
+  setTimeout(function(){ inp.focus(); inp.select(); }, 100);
+}
+
 function renderVehicleCards() {
   var grid = document.getElementById('vehicleCardGrid');
   if(!grid) return;
   grid.innerHTML = '';
-  (window.vehicleFleet||[]).forEach(function(v) {
-    var fuel    = (window.vehicleFuel||[]).filter(function(f){ return f.vid===v.id; });
-    var maint   = (window.vehicleMaint||[]).filter(function(m){ return m.vid===v.id; });
-    var km      = (window.vehicleKm||[]).filter(function(k){ return k.vid===v.id; });
-    var totalFuel  = fuel.reduce(function(s,f){return s+(parseFloat(f.cost)||0);},0);
-    var totalMaint = maint.reduce(function(s,m){return s+(parseFloat(m.cost)||0);},0);
-    var totalKm    = km.reduce(function(s,k){return s+(parseInt(k.distance)||0);},0);
-    var lastOdo    = fuel.length ? (fuel[fuel.length-1].odo||0) : (km.length ? km[km.length-1].endOdo||0 : 0);
+
+  var fleet = window.vehicleFleet || [];
+  if(!fleet.length) {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--t3);">No vehicles yet — click + Add Vehicle to get started</div>';
+    return;
+  }
+
+  fleet.forEach(function(v) {
+    var fuel  = (window.vehicleFuel ||[]).filter(function(f){ return f.vid===v.id; });
+    var maint = (window.vehicleMaint||[]).filter(function(m){ return m.vid===v.id; });
+    var km    = (window.vehicleKm   ||[]).filter(function(k){ return k.vid===v.id; });
+
+    var totalFuelCost = fuel.reduce(function(s,f){ return s+(parseFloat(f.total_cost)||parseFloat(f.cost)||0); },0);
+    var totalMaint    = maint.reduce(function(s,m){ return s+(parseFloat(m.cost)||0); },0);
+    var totalKm       = km.reduce(function(s,k){ return s+(parseInt(k.km_driven)||parseInt(k.dist)||0); },0);
+    // Use odo_current from DB as the authoritative odometer
+    var currentOdo    = v.odo_current || 0;
 
     var card = document.createElement('div');
     card.style.cssText = 'background:var(--s1);border:1px solid var(--bdr);border-top:3px solid var(--red);border-radius:3px;padding:18px;';
 
-    // Header row with name + buttons
+    // ── Header: name + edit/delete buttons ───────────────────────────
     var hdr = document.createElement('div');
-    hdr.style.cssText = 'display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;';
-    var info = document.createElement('div');
-    info.innerHTML =
-      '<div style="font-size:15px;font-weight:700;margin-bottom:2px;">'+escHtml(v.name)+'</div>'+
-      '<div style="font-size:11px;color:var(--t2);">'+escHtml(v.year)+' · '+escHtml(v.plate)+' · '+escHtml(v.color)+'</div>';
-    var btnWrap = document.createElement('div');
-    btnWrap.style.cssText = 'display:flex;gap:6px;flex-shrink:0;';
+    hdr.style.cssText = 'display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px;';
+
+    var nameWrap = document.createElement('div');
+    var nameEl = document.createElement('div');
+    nameEl.style.cssText = 'font-family:"Barlow Condensed",sans-serif;font-size:17px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;';
+    nameEl.textContent = v.name;
+    nameWrap.appendChild(nameEl);
+
+    if(v.plate) {
+      var plateEl = document.createElement('div');
+      plateEl.style.cssText = 'font-family:monospace;font-size:11px;color:var(--t2);margin-top:2px;';
+      plateEl.textContent = v.plate;
+      nameWrap.appendChild(plateEl);
+    }
+
+    var btnGroup = document.createElement('div');
+    btnGroup.style.cssText = 'display:flex;gap:6px;flex-shrink:0;';
     var editBtn = document.createElement('button');
-    editBtn.className = 'btn btn-ghost btn-sm';
+    editBtn.className = 'btn btn-secondary btn-sm';
     editBtn.textContent = 'Edit';
-    editBtn.onclick = (function(vid){ return function(){ openVehicleEditModal(vid); }; })(v.id);
-    var delBtn = document.createElement('button');
-    delBtn.className = 'btn btn-secondary btn-sm';
-    delBtn.innerHTML = '&#128465;';
-    delBtn.onclick = (function(vid){ return function(){ deleteVehicle(vid); }; })(v.id);
-    btnWrap.appendChild(editBtn); btnWrap.appendChild(delBtn);
-    hdr.appendChild(info); hdr.appendChild(btnWrap);
+    editBtn.onclick = (function(vv){ return function(){ openVehicleFormModal(vv); }; })(v);
+    btnGroup.appendChild(editBtn);
+    hdr.appendChild(nameWrap);
+    hdr.appendChild(btnGroup);
     card.appendChild(hdr);
 
-    // Stats row
+    // ── Make / model / year ────────────────────────────────────────
+    if(v.make || v.model || v.year) {
+      var subEl = document.createElement('div');
+      subEl.style.cssText = 'font-size:11px;color:var(--t2);margin-bottom:14px;';
+      subEl.textContent = [v.year, v.make, v.model].filter(Boolean).join(' ') + (v.color ? ' · '+v.color : '');
+      card.appendChild(subEl);
+    } else {
+      card.style.marginBottom = '14px'; // spacing fallback
+    }
+
+    // ── Odometer — big, prominent ──────────────────────────────────
+    var odoBanner = document.createElement('div');
+    odoBanner.style.cssText = 'background:var(--s2);border:1px solid var(--bdr);border-left:3px solid var(--gold);border-radius:2px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;';
+
+    var odoLeft = document.createElement('div');
+    var odoLbl = document.createElement('div');
+    odoLbl.style.cssText = 'font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--t3);margin-bottom:3px;';
+    odoLbl.textContent = 'Current Odometer';
+    var odoVal = document.createElement('div');
+    odoVal.style.cssText = 'font-family:"Barlow Condensed",sans-serif;font-size:22px;font-weight:700;color:var(--gold);line-height:1;';
+    odoVal.textContent = currentOdo > 0 ? currentOdo.toLocaleString()+' km' : '—  Not set';
+    odoLeft.appendChild(odoLbl); odoLeft.appendChild(odoVal);
+
+    // Quick odo update button
+    var odoUpdateBtn = document.createElement('button');
+    odoUpdateBtn.className = 'btn btn-secondary btn-sm';
+    odoUpdateBtn.title = 'Update odometer reading';
+    odoUpdateBtn.innerHTML = '&#9998; Update Odo';
+    odoUpdateBtn.onclick = (function(vv){ return function(){ openOdoUpdateModal(vv); }; })(v);
+
+    odoBanner.appendChild(odoLeft);
+    odoBanner.appendChild(odoUpdateBtn);
+    card.appendChild(odoBanner);
+
+    // ── Stats row ──────────────────────────────────────────────────
     var stats = document.createElement('div');
     stats.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;';
-    stats.innerHTML =
-      '<div style="background:var(--s2);padding:10px;border-radius:2px;text-align:center;">'+
-        '<div style="font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--t3);margin-bottom:4px;">Total Fuel</div>'+
-        '<div style="font-family:monospace;font-size:14px;font-weight:700;color:var(--gold);">$'+totalFuel.toFixed(2)+'</div>'+
-      '</div>'+
-      '<div style="background:var(--s2);padding:10px;border-radius:2px;text-align:center;">'+
-        '<div style="font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--t3);margin-bottom:4px;">Maintenance</div>'+
-        '<div style="font-family:monospace;font-size:14px;font-weight:700;color:var(--orange);">$'+totalMaint.toFixed(2)+'</div>'+
-      '</div>'+
-      '<div style="background:var(--s2);padding:10px;border-radius:2px;text-align:center;">'+
-        '<div style="font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--t3);margin-bottom:4px;">KMs Logged</div>'+
-        '<div style="font-family:monospace;font-size:14px;font-weight:700;color:var(--blue);">'+totalKm.toLocaleString()+'</div>'+
-      '</div>';
+
+    function statBox(lbl, val, color) {
+      var b = document.createElement('div');
+      b.style.cssText = 'background:var(--s2);border-radius:2px;padding:8px 10px;text-align:center;';
+      var v2 = document.createElement('div');
+      v2.style.cssText = 'font-family:"Barlow Condensed",sans-serif;font-size:15px;font-weight:700;color:'+color+';line-height:1;margin-bottom:3px;';
+      v2.textContent = val;
+      var l2 = document.createElement('div');
+      l2.style.cssText = 'font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--t3);';
+      l2.textContent = lbl;
+      b.appendChild(v2); b.appendChild(l2);
+      return b;
+    }
+    stats.appendChild(statBox('Fuel Cost', '$'+totalFuelCost.toFixed(0), 'var(--orange)'));
+    stats.appendChild(statBox('Maintenance', '$'+totalMaint.toFixed(0), 'var(--red)'));
+    stats.appendChild(statBox('KM Logged', totalKm.toLocaleString(), 'var(--blue)'));
     card.appendChild(stats);
 
-    if(lastOdo) {
-      var odoEl = document.createElement('div');
-      odoEl.style.cssText = 'font-size:11px;color:var(--t3);';
-      odoEl.innerHTML = 'Last odometer: <strong style="color:var(--t2);">'+lastOdo.toLocaleString()+' km</strong>';
-      card.appendChild(odoEl);
-    }
     if(v.notes) {
       var notesEl = document.createElement('div');
-      notesEl.style.cssText = 'font-size:11px;color:var(--t3);margin-top:4px;';
+      notesEl.style.cssText = 'font-size:11px;color:var(--t3);border-top:1px solid var(--bdr);padding-top:8px;';
       notesEl.textContent = v.notes;
       card.appendChild(notesEl);
     }
+
     grid.appendChild(card);
   });
-
-  // Add "+" card
-  var addCard = document.createElement('div');
-  addCard.style.cssText = 'background:var(--s2);border:2px dashed var(--bdr);border-radius:3px;padding:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;min-height:160px;color:var(--t3);font-size:13px;transition:all 0.15s;';
-  addCard.innerHTML = '&#43; Add Vehicle';
-  addCard.onmouseover = function(){ this.style.borderColor='var(--red)'; this.style.color='var(--text)'; };
-  addCard.onmouseout  = function(){ this.style.borderColor='var(--bdr)'; this.style.color='var(--t3)'; };
-  addCard.onclick = openVehicleAddModal;
-  grid.appendChild(addCard);
 }
 
 // ── Add/Edit vehicle modal ───────────────────────────────────────────
@@ -6165,10 +6482,10 @@ function openVehicleFormModal(v) {
 
   var overlay = document.createElement('div');
   overlay.id = 'vehicleFormModal';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto;';
 
   var box = document.createElement('div');
-  box.style.cssText = 'background:var(--s1);border:1px solid var(--bdr2);border-top:3px solid var(--red);border-radius:4px;width:460px;max-width:92vw;';
+  box.style.cssText = 'background:var(--s1);border:1px solid var(--bdr2);border-top:3px solid var(--red);border-radius:4px;width:500px;max-width:96vw;';
 
   // Header
   var hdr = document.createElement('div');
@@ -6185,23 +6502,62 @@ function openVehicleFormModal(v) {
   // Body
   var body = document.createElement('div');
   body.className = 'modal-body';
+
+  var odoVal  = v ? (v.odo_current||0) : '';
+  var odoPH   = isEdit ? 'Current reading' : 'Initial odometer reading';
+  var odoHint = isEdit
+    ? 'Update only to correct a wrong entry — trip logs handle normal changes'
+    : 'Enter the odometer reading when adding the vehicle to your fleet';
+
   body.innerHTML =
     '<div class="form-row">'+
-      '<div class="form-field"><label>Vehicle Name</label><input id="vfName" type="text" value="'+escHtml(v?v.name:'')+'" placeholder="Ford Transit (KG-01)"></div>'+
-      '<div class="form-field"><label>Year</label><input id="vfYear" type="text" value="'+escHtml(v?v.year:'')+'" placeholder="2024"></div>'+
+      '<div class="form-field"><label>Vehicle Name / ID</label>'+
+        '<input id="vfName" type="text" value="'+escHtml(v?v.name:'')+'" placeholder="Ford Transit (KG-FV-0001)"></div>'+
+      '<div class="form-field"><label>Year</label>'+
+        '<input id="vfYear" type="text" value="'+escHtml(v?v.year||'':'')+'" placeholder="2024"></div>'+
     '</div>'+
     '<div class="form-row">'+
-      '<div class="form-field"><label>Plate / ID</label><input id="vfPlate" type="text" value="'+escHtml(v?v.plate:'')+'" placeholder="KG-06"></div>'+
-      '<div class="form-field"><label>Color</label><input id="vfColor" type="text" value="'+escHtml(v?v.color:'')+'" placeholder="White"></div>'+
+      '<div class="form-field"><label>Make</label>'+
+        '<input id="vfMake" type="text" value="'+escHtml(v?v.make||'':'')+'" placeholder="Ford"></div>'+
+      '<div class="form-field"><label>Model</label>'+
+        '<input id="vfModel" type="text" value="'+escHtml(v?v.model||'':'')+'" placeholder="Transit 250"></div>'+
+    '</div>'+
+    '<div class="form-row">'+
+      '<div class="form-field"><label>Fleet ID / Plate</label>'+
+        '<input id="vfPlate" type="text" value="'+escHtml(v?v.plate||'':'')+'" placeholder="KG-FV-0001"></div>'+
+      '<div class="form-field"><label>Color</label>'+
+        '<input id="vfColor" type="text" value="'+escHtml(v?v.color||'':'')+'" placeholder="White"></div>'+
+    '</div>'+
+    // Odometer — prominently placed with hint
+    '<div style="background:var(--s2);border:1px solid var(--bdr);border-left:3px solid var(--gold);border-radius:2px;padding:14px;margin-bottom:14px;">'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">'+
+        '<div class="form-field">'+
+          '<label>Odometer (km)</label>'+
+          '<input id="vfOdo" type="number" min="0" value="'+escHtml(String(odoVal))+'" placeholder="'+odoPH+'">'+
+        '</div>'+
+        '<div style="display:flex;align-items:flex-end;padding-bottom:1px;">'+
+          '<div style="font-size:11px;color:var(--t2);line-height:1.5;">'+odoHint+'</div>'+
+        '</div>'+
+      '</div>'+
     '</div>'+
     '<div class="form-row single">'+
-      '<div class="form-field"><label>Notes</label><input id="vfNotes" type="text" value="'+escHtml(v?v.notes||'':'')+'" placeholder="Any notes..."></div>'+
+      '<div class="form-field"><label>Notes</label>'+
+        '<input id="vfNotes" type="text" value="'+escHtml(v?v.notes||'':'')+'" placeholder="Insurance info, service interval, etc."></div>'+
     '</div>';
+
   box.appendChild(body);
 
   // Footer
   var foot = document.createElement('div');
   foot.className = 'modal-foot';
+  if(isEdit) {
+    var delBtn = document.createElement('button');
+    delBtn.className = 'btn btn-secondary';
+    delBtn.style.cssText = 'margin-right:auto;color:var(--red);';
+    delBtn.textContent = 'Delete Vehicle';
+    delBtn.onclick = function(){ overlay.remove(); deleteVehicle(v.id); };
+    foot.appendChild(delBtn);
+  }
   var cancelBtn = document.createElement('button');
   cancelBtn.className = 'btn btn-secondary';
   cancelBtn.textContent = 'Cancel';
@@ -6211,7 +6567,8 @@ function openVehicleFormModal(v) {
   saveBtn.textContent = isEdit ? 'Save Changes' : 'Add Vehicle';
   var vid = v ? v.id : '';
   saveBtn.onclick = function(){ saveVehicleForm(vid); };
-  foot.appendChild(cancelBtn); foot.appendChild(saveBtn);
+  foot.appendChild(cancelBtn);
+  foot.appendChild(saveBtn);
   box.appendChild(foot);
 
   overlay.appendChild(box);
