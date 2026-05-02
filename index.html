@@ -1571,6 +1571,8 @@ body {
   <div class="nav-item" data-page="invoices" onclick="navTo('invoices')"><span class="nav-icon">&#129534;</span> Invoices <span class="nav-badge gold" id="nb-invoices">0</span></div>
   <div class="nav-item" data-page="driver" onclick="navTo('driver')"><span class="nav-icon">&#128663;</span> Dispatch</div>
   <div class="nav-item" data-page="vehicles" onclick="navTo('vehicles')"><span class="nav-icon">&#128652;</span> Vehicles</div>
+  <div class="nav-section-label">System</div>
+  <div class="nav-item" data-page="setup" onclick="navTo('setup')"><span class="nav-icon">&#128196;</span> DB Setup</div>
   <div class="nav-section-label">Actions</div>
   <div class="nav-item" data-page="followups" onclick="navTo('followups')"><span class="nav-icon">&#128276;</span> Follow-ups <span class="nav-badge" id="nb-fu" style="display:none;">0</span></div>
 </nav>
@@ -2377,6 +2379,85 @@ body {
     </div>
   </div>
 </div>
+
+<div class="page" id="page-setup">
+  <div class="page-hdr">
+    <div class="page-hdr-left"><h1>Database Setup</h1><p>Run this SQL in your Supabase SQL Editor to create the fleet &amp; trips tables</p></div>
+    <div class="page-hdr-right">
+      <button class="btn btn-primary" onclick="copySetupSQL()">&#128203; Copy SQL</button>
+      <a class="btn btn-secondary" href="https://supabase.com/dashboard" target="_blank">Open Supabase &#8599;</a>
+    </div>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden;">
+    <div class="card-header">
+      <span class="card-title">Fleet &amp; Trip Tables — Supabase SQL</span>
+      <span style="font-size:11px;color:var(--t2);">Copy → Supabase Dashboard → SQL Editor → New Query → Run</span>
+    </div>
+    <div style="padding:20px;">
+      <div style="background:var(--s2);border:1px solid var(--bdr);border-radius:3px;padding:18px;font-family:monospace;font-size:12px;color:var(--green);line-height:1.7;white-space:pre;overflow-x:auto;" id="setupSQLBlock">
+-- Run this SQL in your Supabase SQL Editor to create the fleet tables:
+-- Go to: https://supabase.com/dashboard → Your Project → SQL Editor → New Query
+
+CREATE TABLE IF NOT EXISTS fleet_vehicles (
+  id uuid default gen_random_uuid() primary key,
+  name text not null,
+  make text, model text, year text,
+  plate text, color text, notes text,
+  odo_current int default 0,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+CREATE TABLE IF NOT EXISTS fleet_fuel (
+  id uuid default gen_random_uuid() primary key,
+  vehicle_id uuid references fleet_vehicles(id) on delete cascade,
+  station text, litres numeric, price_per_litre numeric,
+  total_cost numeric, fuel_type text, odometer int,
+  logged_at timestamptz default now()
+);
+
+CREATE TABLE IF NOT EXISTS fleet_maintenance (
+  id uuid default gen_random_uuid() primary key,
+  vehicle_id uuid references fleet_vehicles(id) on delete cascade,
+  description text, cost numeric, shop text, odometer int,
+  service_date date, receipt_data text,
+  updated_at timestamptz default now()
+);
+
+CREATE TABLE IF NOT EXISTS fleet_km (
+  id uuid default gen_random_uuid() primary key,
+  vehicle_id uuid references fleet_vehicles(id) on delete cascade,
+  description text, odo_start int, odo_end int, km_driven int,
+  trip_date date, updated_at timestamptz default now()
+);
+
+CREATE TABLE IF NOT EXISTS completed_trips (
+  id uuid default gen_random_uuid() primary key,
+  quote_id uuid, quote_num text, customer_name text, vehicle text,
+  odo_start int default 0, odo_end_delivery int default 0, total_km int default 0,
+  pickup_address text, dropoff_address text,
+  bol_pickup_ref text, bol_pickup_signed timestamptz, bol_pickup_receiver text,
+  bol_dropoff_ref text, bol_dropoff_signed timestamptz, bol_dropoff_receiver text,
+  pickup_photo_count int default 0, dropoff_photo_count int default 0,
+  invoice_num text, completed_at timestamptz default now()
+);
+
+-- Enable RLS on each table and add allow_all policy:
+ALTER TABLE fleet_vehicles   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE fleet_fuel       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE fleet_maintenance ENABLE ROW LEVEL SECURITY;
+ALTER TABLE fleet_km         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE completed_trips  ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "allow_all" ON fleet_vehicles   FOR ALL USING (true);
+CREATE POLICY "allow_all" ON fleet_fuel       FOR ALL USING (true);
+CREATE POLICY "allow_all" ON fleet_maintenance FOR ALL USING (true);
+CREATE POLICY "allow_all" ON fleet_km         FOR ALL USING (true);
+CREATE POLICY "allow_all" ON completed_trips  FOR ALL USING (true);</div>
+    </div>
+  </div>
+</div>
+
 </div><!-- /page-content -->
 
 
@@ -2553,6 +2634,7 @@ function navTo(page) {
   if(page === 'followups')  { updateFollowups(); }
   if(page === 'shipping')   { recalc(); }
   if(page === 'driver')     { populateDispatchSel(); if(!window.completedTrips) loadTrips(); else renderCompletedTrips(); }
+  if(page === 'setup')      { /* static page, nothing to load */ }
   if(page === 'vehicles')   { if(!window.vehicleFleet) loadVehicles(); else { renderVehicleCards(); renderVehicleLogs(); populateActiveVehicleSel(); } }
 }
 
@@ -3269,7 +3351,7 @@ function generateInvoice() {
   var invoiceNum  = document.getElementById('invoiceNum').value || ('INV-'+Date.now());
   var dueDateRaw  = document.getElementById('invoiceDueDate').value;
   var dueDate     = dueDateRaw ? new Date(dueDateRaw+'T12:00:00') : new Date(today.getTime()+30*86400000);
-  var termsNote   = document.getElementById('invoiceTermsNote').value || 'Payment due within 30 days. Late payments subject to 5% fee.';
+  var termsNote   = document.getElementById('invoiceTermsNote').value || 'Payment due on delivery. Late payments subject to 2% fee per week.';
   var payRef      = document.getElementById('invoicePayRef').value || 'khalid@khairgroup.ca';
   var isPaid      = window._invoiceStatus === 'paid';
   var quoteRef    = g('quoteRef').value || '';
@@ -3463,7 +3545,7 @@ function generateInvoice() {
     doc.text('Payment Received \u2014 Thank you!',PL+10,infoY+16);
     } else {
       doc.setFont('helvetica','bold');doc.setFontSize(9);st(...BLK);
-      doc.text('Payment due by: '+dateFmt(dueDate),PL+10,infoY+14);
+      doc.text((isPaid ? 'Payment Received \u2014 Thank you!' : 'PAYMENT DUE ON DELIVERY'),PL+10,infoY+14);
       if(payRef){doc.setFont('helvetica','bold');doc.setFontSize(8.5);st(...BLK);
         doc.text('E-Transfer: '+payRef,PR-6,infoY+14,{align:'right'});}
       if(activeMethods){doc.setFont('helvetica','normal');doc.setFontSize(8);st(...DGR);
@@ -3637,7 +3719,7 @@ function toggleInvoicePanel(el) {
   if(arr) arr.innerHTML = open ? '&#9660;' : '&#9650;';
   if(!open) {
     if(!document.getElementById('invoiceDueDate').value) {
-      var d = new Date(); d.setDate(d.getDate()+30);
+      var d = new Date(); d.setDate(d.getDate());
       document.getElementById('invoiceDueDate').value = d.toISOString().split('T')[0];
     }
     if(!document.getElementById('invoiceNum').value) {
@@ -3888,7 +3970,7 @@ function downloadInvWithPOD(id) {
       setV('addrB',       inv.dropoff_address);
       setV('invoiceNum',  inv.invoice_num);
       setV('invoiceDueDate', inv.due_date);
-      setV('invoiceTermsNote','Payment due within 30 days. Late payments subject to 5% fee.');
+      setV('invoiceTermsNote','Payment due on delivery. Late payments subject to 2% fee per week.');
       setV('companyName','Khair Group');
       setV('invoicePayRef','khalid@khairgroup.ca');
       window._invoiceStatus = inv.status==='paid'?'paid':'unpaid';
@@ -3993,7 +4075,7 @@ async function genSavedInvPDF(id) {
   setV('addrB',       inv.dropoff_address);
   setV('invoiceNum',  inv.invoice_num);
   setV('invoiceDueDate', inv.due_date);
-  setV('invoiceTermsNote', 'Payment due within 30 days. Late payments subject to 5% fee.');
+  setV('invoiceTermsNote', 'Payment due on delivery. Late payments subject to 2% fee per week.');
   // Set invoice status
   window._invoiceStatus = inv.status === 'paid' ? 'paid' : 'unpaid';
   var unpaidBtn = document.getElementById('statusUnpaid');
@@ -4530,7 +4612,7 @@ function buildInvoiceEmailBody(inv) {
   body += 'PAYMENT\n';
   body += 'E-Transfer: ' + payEmail + '\n';
   body += 'Bank Transfer / Credit Card available on request.\n\n';
-  body += 'Payment Terms: Net 30. Late payments subject to 5% fee.\n\n';
+  body += 'Payment Terms: Due on delivery. Late payments subject to 2% fee per week.\n\n';
   body += 'Thank you for your business!\n\n';
   body += 'Best regards,\n';
   body += company + '\n';
@@ -4561,7 +4643,7 @@ function openCreateInvoicePanel() {
   if(p) {
     p.style.display = 'block';
     // Set default due date
-    var d = new Date(); d.setDate(d.getDate()+30);
+    var d = new Date(); d.setDate(d.getDate());
     var el = document.getElementById('siDueDate'); if(el) el.value = d.toISOString().split('T')[0];
     // Add first line item if empty
     var tbody = document.getElementById('siLineItems');
@@ -4731,7 +4813,7 @@ function saveSiInvoice(generatePdf) {
           var setV=function(id,val){var el=document.getElementById(id);if(el)el.value=val||'';};
           setV('custName',name); setV('custEmail',email); setV('custPhone',phone);
           setV('invoiceNum',invNum); setV('invoiceDueDate',dueDate||'');
-          setV('invoiceTermsNote','Payment due within 30 days. Late payments subject to 5% fee.');
+          setV('invoiceTermsNote','Payment due on delivery. Late payments subject to 2% fee per week.');
           window._invoiceStatus='unpaid';
           generateInvoice();
         }, 400);
@@ -5785,7 +5867,7 @@ async function completeDeliveryFinal(odoData) {
     pickup_address:job.pickup_address||'', dropoff_address:job.dropoff_address||'',
     status:'unpaid', total:job.total||0, subtotal:job.subtotal||job.total||0,
     hst_amount:job.hst||0, distance_km:job.distance_km||delivKm||0,
-    due_date:(function(){var d=new Date();d.setDate(d.getDate()+30);return d.toISOString().split('T')[0];})(),
+    due_date:(function(){var d=new Date();d.setDate(d.getDate());return d.toISOString().split('T')[0];})(),
     updated_at:ts
   };
   var ir = await sb.from('invoices').insert(invPayload);
@@ -6822,6 +6904,19 @@ function regenerateTripPOD(idx) {
   }
 }
 
+
+function copySetupSQL() {
+  var el = document.getElementById('setupSQLBlock');
+  if(!el) return;
+  var text = el.textContent || el.innerText || '';
+  navigator.clipboard.writeText(text).then(function(){
+    showToast('SQL copied — paste into Supabase SQL Editor and click Run','ok');
+  }).catch(function(){
+    var r = document.createRange(); r.selectNode(el);
+    window.getSelection().removeAllRanges(); window.getSelection().addRange(r);
+    showToast('SQL selected — press Ctrl+C / Cmd+C to copy','inf');
+  });
+}
 </script>
 </body>
 </html>
