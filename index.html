@@ -667,6 +667,20 @@ body {
 
 /* ══ CUSTOMER SEARCH DROPDOWN ════════════════════════ */
 .cust-search-wrap { position: relative; }
+.cust-search-wrap input {
+  /* Inherit .form-field input styling exactly */
+  width: 100%;
+  background: var(--s2);
+  border: 1px solid var(--bdr);
+  border-radius: 2px;
+  padding: 9px 12px;
+  font-family: 'Barlow', sans-serif;
+  font-size: 13px;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s;
+}
+.cust-search-wrap input:focus { border-color: var(--red); }
 .cust-dropdown {
   position: absolute;
   top: 100%; left: 0; right: 0;
@@ -1755,30 +1769,54 @@ body {
           <div class="panel-title">Customer Information</div>
         </div>
         <div class="panel-body">
-          <div class="field-row">
-            <div class="field">
-              <label>Customer / Company Name</label>
+
+          <!-- Customer search -->
+          <div class="form-row single" style="margin-bottom:14px;">
+            <div class="form-field">
+              <label>Customer Name</label>
               <div class="cust-search-wrap">
-                <input type="text" id="custName" placeholder="Search or type customer name..." 
+                <input type="text" id="custName" placeholder="Search existing customers or type a new name..."
                   autocomplete="off"
-                  oninput="onCustSearch(this.value)" 
+                  oninput="onCustSearch(this.value)"
                   onfocus="onCustSearch(this.value)"
                   onblur="setTimeout(function(){var d=document.getElementById('custDropdown');if(d)d.classList.remove('open');},200)">
                 <div id="custDropdown" class="cust-dropdown"></div>
               </div>
-              <div id="custFilledBadge" style="display:none;">
-                <span class="cust-filled-badge" onclick="clearCustFill()">&#10003; Customer filled &nbsp;&#215; Clear</span>
+              <div id="custFilledBadge" style="display:none;margin-top:6px;">
+                <span class="cust-filled-badge" onclick="clearCustFill()">&#10003; Auto-filled from database &nbsp;&mdash;&nbsp; &#215; Clear</span>
               </div>
             </div>
-            <div class="field"><label>Contact Email</label><input type="email" id="custEmail" placeholder="jane@example.com"></div>
           </div>
-          <div class="field-row">
-            <div class="field"><label>Phone Number</label><input type="tel" id="custPhone" placeholder="(416) 555-0100"></div>
-            <div class="field"><label>Quote Reference #</label><input type="text" id="quoteRef" placeholder="Auto-generated"></div>
+
+          <div class="form-row">
+            <div class="form-field">
+              <label>Email</label>
+              <input type="email" id="custEmail" placeholder="jane@example.com">
+            </div>
+            <div class="form-field">
+              <label>Phone</label>
+              <input type="tel" id="custPhone" placeholder="(416) 555-0100">
+            </div>
           </div>
-          <div class="field-row single">
-            <div class="field"><label>Customer Address</label><input type="text" id="custAddr" placeholder="248 Grand River Ave, Brantford, ON"></div>
+
+          <div class="form-row">
+            <div class="form-field">
+              <label>Quote Reference #</label>
+              <input type="text" id="quoteRef" placeholder="Auto-generated on save">
+            </div>
+            <div class="form-field">
+              <label>Valid Days</label>
+              <input type="number" id="validDays" value="7" min="1">
+            </div>
           </div>
+
+          <div class="form-row single">
+            <div class="form-field">
+              <label>Customer / Billing Address</label>
+              <input type="text" id="custAddr" placeholder="248 Grand River Ave, Brantford, ON">
+            </div>
+          </div>
+
         </div>
       </div>
 
@@ -4370,39 +4408,50 @@ function confirmVehicle() {
   var odoEl     = document.getElementById('driverOdoStart');
   var purposeEl = document.getElementById('driverMileagePurpose');
 
-  if(!vSel || !vSel.value) { showToast('Select a vehicle','err'); return; }
-
-  var vid   = vSel.value;
-  var vname = '';
-  var opt   = vSel.options[vSel.selectedIndex];
-
-  // Could be a fleet UUID or a hard-coded name string
-  var fleetVehicle = (window.vehicleFleet||[]).find(function(v){ return v.id === vid; });
-  if(fleetVehicle) {
-    vname = fleetVehicle.name + (fleetVehicle.plate ? ' ('+fleetVehicle.plate+')' : '');
-  } else {
-    // Hard-coded fallback list — value is the display name
-    vname = vid;
-    vid   = '';  // no fleet ID
+  // Vehicle check
+  if(!vSel || !vSel.value) {
+    showToast('Please select a vehicle first','err');
+    return;
   }
 
-  var odoStart = parseInt((odoEl||{}).value)||0;
-  var purpose  = (purposeEl||{}).value||'delivery';
+  var vid  = vSel.value;
+  var opt  = vSel.options[vSel.selectedIndex];
 
-  if(!vname)   { showToast('Select a vehicle','err'); return; }
-  if(!odoStart){ showToast('Enter the starting odometer reading','err'); return; }
+  var fleetVehicle = (window.vehicleFleet||[]).find(function(v){ return v.id === vid; });
+  var vname = fleetVehicle
+    ? fleetVehicle.name + (fleetVehicle.plate ? ' ('+fleetVehicle.plate+')' : '')
+    : vid;  // fallback: vid IS the display name for hard-coded list
+  var realVid = fleetVehicle ? fleetVehicle.id : '';
 
+  // Odometer — must be present and a positive number
+  var odoRaw = (odoEl ? odoEl.value : '').trim();
+  if(odoRaw === '' || odoRaw === null) {
+    showToast('Enter the starting odometer reading','err');
+    if(odoEl) { odoEl.focus(); odoEl.style.borderColor='var(--red)'; }
+    return;
+  }
+  var odoStart = parseInt(odoRaw) || 0;
+  if(odoStart <= 0) {
+    showToast('Enter a valid odometer reading (must be greater than 0)','err');
+    if(odoEl) { odoEl.focus(); odoEl.select(); odoEl.style.borderColor='var(--red)'; }
+    return;
+  }
+
+  var purpose = (purposeEl ? purposeEl.value : '') || 'delivery';
+
+  // Store on driverJob
   if(driverJob) {
-    driverJob._vehicleId  = fleetVehicle ? fleetVehicle.id : '';
-    driverJob._vehicle    = vname;
-    driverJob._odo        = odoStart;
-    driverJob._odoStart   = odoStart;
-    driverJob._purpose    = purpose;
+    driverJob._vehicleId = realVid;
+    driverJob._vehicle   = vname;
+    driverJob._odo       = odoStart;
+    driverJob._odoStart  = odoStart;
+    driverJob._purpose   = purpose;
   }
 
   var m = document.getElementById('vehicleModal');
   if(m) m.remove();
-  showToast('Trip started: '+vname+' @ '+odoStart.toLocaleString()+' km','ok');
+
+  showToast('Trip started: ' + vname + ' @ ' + odoStart.toLocaleString() + ' km', 'ok');
   setTimeout(openMapPicker, 500);
 }
 
@@ -5188,7 +5237,7 @@ function openMapPicker() {
 // ── Vehicle modal ─────────────────────────────────────────────────────
 function openVehicleModal() {
   var existing = document.getElementById('vehicleModal');
-  if(existing) { existing.remove(); } // always rebuild so odo auto-fills freshly
+  if(existing) existing.remove();
 
   var overlay = mk('div', { id:'vehicleModal' });
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
@@ -5198,94 +5247,111 @@ function openVehicleModal() {
 
   var title = mk('h2');
   title.style.cssText = 'font-family:"Barlow Condensed",sans-serif;font-size:20px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:20px;';
-  title.textContent = 'Select Vehicle';
+  title.textContent = 'Select Vehicle & Start Trip';
   box.appendChild(title);
 
-  // ── Vehicle selector — populated from fleet ───────────────────────────
-  var vLabel = mk('div');
-  vLabel.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--t3);margin-bottom:6px;';
-  vLabel.textContent = 'Vehicle';
-  box.appendChild(vLabel);
+  // ── Vehicle selector ─────────────────────────────────────────────────
+  var vLbl = mk('div');
+  vLbl.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--t3);margin-bottom:6px;';
+  vLbl.textContent = 'Vehicle';
+  box.appendChild(vLbl);
 
   var vSel = mk('select', { id:'driverVehicleSel' });
   vSel.style.cssText = 'width:100%;padding:10px;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;font-size:14px;color:var(--text);outline:none;margin-bottom:16px;';
 
-  // Use fleet vehicles if available, fallback to hard-coded list
   var fleet = window.vehicleFleet || [];
   if(fleet.length) {
-    var defOpt = mk('option',{value:''}); defOpt.textContent='-- Select --'; vSel.appendChild(defOpt);
+    var defOpt = mk('option',{value:''}); defOpt.textContent='-- Select vehicle --'; vSel.appendChild(defOpt);
     fleet.forEach(function(v){
-      var o = mk('option',{value:v.id});
-      o.textContent = v.name + (v.plate?' ('+v.plate+')':'');
-      o.setAttribute('data-odo', v.odo_current||0);
+      var o = mk('option', { value: v.id });
+      o.textContent = v.name + (v.plate ? ' ('+v.plate+')' : '');
+      o.setAttribute('data-odo', v.odo_current || 0);
       o.setAttribute('data-name', v.name);
       vSel.appendChild(o);
     });
   } else {
+    // Fallback: hard-coded list when no fleet in DB yet
     ['Ford Transit (KG-01)','Sprinter Van (KG-02)','Box Truck (KG-03)','Cube Van (KG-04)','Pickup Truck (KG-05)']
       .forEach(function(v){ var o=mk('option',{value:v}); o.textContent=v; vSel.appendChild(o); });
   }
   box.appendChild(vSel);
 
-  // ── Odometer — auto-fill from last known fleet odo ────────────────────
-  var oLabel = mk('div');
-  oLabel.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--t3);margin-bottom:4px;';
-  oLabel.textContent = 'Starting Odometer (km)';
-  box.appendChild(oLabel);
+  // ── Odometer ─────────────────────────────────────────────────────────
+  var oLbl = mk('div');
+  oLbl.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--t3);margin-bottom:4px;';
+  oLbl.textContent = 'Starting Odometer (km)';
+  box.appendChild(oLbl);
 
-  var oHint = mk('div');
-  oHint.id = 'odoHint';
-  oHint.style.cssText = 'font-size:11px;color:var(--t3);margin-bottom:6px;';
-  oHint.textContent = 'Auto-filled from last recorded odometer';
+  var oHint = mk('div', { id:'odoHint' });
+  oHint.style.cssText = 'font-size:11px;color:var(--t3);margin-bottom:8px;';
+  oHint.textContent = 'Enter or confirm the odometer reading before starting';
   box.appendChild(oHint);
 
-  var oInput = mk('input', { id:'driverOdoStart', type:'number' });
+  var oInput = mk('input', { id:'driverOdoStart', type:'number', min:'0' });
   oInput.placeholder = 'e.g. 64000';
-  oInput.style.cssText = 'width:100%;padding:10px;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;font-size:14px;color:var(--text);outline:none;margin-bottom:14px;';
+  oInput.style.cssText = 'width:100%;padding:11px 12px;background:var(--s2);border:2px solid var(--bdr);border-radius:2px;font-size:16px;color:var(--text);outline:none;margin-bottom:14px;font-family:monospace;';
+  oInput.onfocus = function(){ this.style.borderColor='var(--red)'; };
+  oInput.onblur  = function(){ this.style.borderColor='var(--bdr)'; };
   box.appendChild(oInput);
 
-  // Auto-fill odo when vehicle selected
+  // Auto-fill odo from fleet when vehicle selected
   vSel.onchange = function() {
     var opt = vSel.options[vSel.selectedIndex];
-    var odo = opt ? parseInt(opt.getAttribute('data-odo'))||0 : 0;
+    if(!opt) return;
+    var odo = parseInt(opt.getAttribute('data-odo')) || 0;
     if(odo > 0) {
       oInput.value = odo;
-      oHint.textContent = '\u2713 Last recorded: ' + odo.toLocaleString() + ' km — confirm or adjust';
+      oHint.textContent = '\u2713 Last recorded: ' + odo.toLocaleString() + ' km — confirm or adjust if needed';
       oHint.style.color = 'var(--green)';
     } else {
       oInput.value = '';
-      oHint.textContent = 'No odometer on file — enter manually';
-      oHint.style.color = 'var(--t3)';
+      oHint.textContent = 'No odometer on file — enter current reading';
+      oHint.style.color = 'var(--orange)';
+      setTimeout(function(){ oInput.focus(); }, 50);
     }
   };
-  // Trigger if fleet vehicles loaded
-  if(fleet.length) vSel.onchange();
+  // Auto-trigger if fleet vehicles loaded and first option pre-selected
+  if(fleet.length && vSel.options.length > 1) {
+    // Don't auto-select — leave at "-- Select vehicle --" so user must choose
+  }
 
-  // ── Mileage purpose ───────────────────────────────────────────────────
-  var pLabel = mk('div');
-  pLabel.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--t3);margin-bottom:6px;';
-  pLabel.textContent = 'Mileage Purpose';
-  box.appendChild(pLabel);
+  // ── Mileage purpose ──────────────────────────────────────────────────
+  var pLbl = mk('div');
+  pLbl.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--t3);margin-bottom:6px;';
+  pLbl.textContent = 'Trip Purpose';
+  box.appendChild(pLbl);
 
   var pSel = mk('select', { id:'driverMileagePurpose' });
   pSel.style.cssText = 'width:100%;padding:10px;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;font-size:14px;color:var(--text);outline:none;margin-bottom:22px;';
   [['delivery','Delivery Run'],['pickup','Pickup Run'],['dead_head','Dead Head (Empty)'],
    ['return','Return to Lot'],['shop','Shop / Service'],['other','Other']]
-    .forEach(function(o){ var el=mk('option',{value:o[0]}); el.textContent=o[1]; pSel.appendChild(el); });
+    .forEach(function(pair){
+      var o = mk('option',{value:pair[0]});
+      o.textContent = pair[1];
+      pSel.appendChild(o);
+    });
   box.appendChild(pSel);
 
   // ── Buttons ───────────────────────────────────────────────────────────
-  var btnRow = mk('div'); btnRow.style.cssText = 'display:flex;gap:10px;';
+  var btnRow = mk('div'); btnRow.style.cssText='display:flex;gap:10px;';
+
   var cancelBtn = mk('button'); cancelBtn.className='btn btn-secondary'; cancelBtn.style.flex='1';
-  cancelBtn.textContent='Cancel'; cancelBtn.onclick=function(){ overlay.remove(); };
+  cancelBtn.textContent='Cancel';
+  cancelBtn.onclick=function(){ overlay.remove(); };
+
   var goBtn = mk('button'); goBtn.className='btn btn-green'; goBtn.style.cssText='flex:2;font-size:15px;';
-  goBtn.innerHTML='&#128640; Start Trip'; goBtn.onclick=confirmVehicle;
+  goBtn.innerHTML='&#128640; Start Trip';
+  goBtn.onclick = confirmVehicle;
+
   btnRow.appendChild(cancelBtn); btnRow.appendChild(goBtn);
   box.appendChild(btnRow);
 
   overlay.appendChild(box);
   overlay.onclick=function(e){ if(e.target===overlay) overlay.remove(); };
   document.body.appendChild(overlay);
+
+  // Focus odo field after short delay
+  setTimeout(function(){ oInput.focus(); }, 150);
 }
 
 function confirmVehicle() {
