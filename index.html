@@ -6281,6 +6281,11 @@ async function deleteVehicle(vid) {
   showToast('Vehicle deleted','ok');
 }
 
+
+function isRealUUID(str) {
+  // Supabase UUIDs match: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+}
 async function logVehicleFuel() {
   var vid     = (document.getElementById('activeVehicleSel')||{}).value||'';
   var station = ((document.getElementById('vFuelStation')||{}).value||'').trim();
@@ -6289,7 +6294,7 @@ async function logVehicleFuel() {
   var total   = parseFloat((document.getElementById('vFuelTotal')||{}).value)||(litres*ppl);
   var type    = ((document.getElementById('vFuelType')||{}).value)||'Diesel';
   var odo     = parseInt((document.getElementById('vFuelOdo')||{}).value)||0;
-  if(!vid)   { showToast('Select a vehicle','err'); return; }
+  if(!vid || !isRealUUID(vid)) { showToast('Select a vehicle from the fleet. If vehicle shows but fails, delete and re-add it — it may have been created before the database was ready.','err'); return; }
   if(!litres){ showToast('Enter litres','err'); return; }
   var v = (window.vehicleFleet||[]).find(function(x){return x.id===vid;});
   var payload = { vehicle_id:vid, station:station, litres:litres, price_per_litre:ppl,
@@ -6315,7 +6320,7 @@ async function logVehicleMaintenance() {
   var odo  = parseInt((document.getElementById('vMaintOdo')||{}).value)||0;
   var date = (document.getElementById('vMaintDate')||{}).value||new Date().toISOString().split('T')[0];
   var fileInput = document.getElementById('vMaintReceipt');
-  if(!vid) { showToast('Select a vehicle','err'); return; }
+  if(!vid || !isRealUUID(vid)) { showToast('Select a vehicle from the fleet. If vehicle shows but fails, delete and re-add it — it may have been created before the database was ready.','err'); return; }
   if(!desc){ showToast('Enter description','err'); return; }
   var v = (window.vehicleFleet||[]).find(function(x){return x.id===vid;});
   var receiptData = null;
@@ -6345,7 +6350,7 @@ async function logVehicleKm() {
   var start = parseInt((document.getElementById('vKmStart')||{}).value)||0;
   var end2  = parseInt((document.getElementById('vKmEnd')||{}).value)||0;
   var date  = (document.getElementById('vKmDate')||{}).value||new Date().toISOString().split('T')[0];
-  if(!vid) { showToast('Select a vehicle','err'); return; }
+  if(!vid || !isRealUUID(vid)) { showToast('Select a vehicle from the fleet. If vehicle shows but fails, delete and re-add it — it may have been created before the database was ready.','err'); return; }
   if(!end2){ showToast('Enter end odometer','err'); return; }
   var dist = Math.max(0, end2-start);
   var v = (window.vehicleFleet||[]).find(function(x){return x.id===vid;});
@@ -6454,8 +6459,23 @@ function renderVehicleCards() {
     // Use odo_current from DB as the authoritative odometer
     var currentOdo    = v.odo_current || 0;
 
+    // Check if this vehicle has a fake/invalid ID (created before DB was ready)
+    var hasFakeId = !isRealUUID(v.id);
+
     var card = document.createElement('div');
-    card.style.cssText = 'background:var(--s1);border:1px solid var(--bdr);border-top:3px solid var(--red);border-radius:3px;padding:18px;';
+    card.style.cssText = 'background:var(--s1);border:1px solid var(--bdr);border-top:3px solid '+(hasFakeId?'var(--orange)':'var(--red)')+';border-radius:3px;padding:18px;';
+
+    if(hasFakeId) {
+      var warnBanner = document.createElement('div');
+      warnBanner.style.cssText = 'background:rgba(230,126,34,0.15);border:1px solid var(--orange);border-radius:2px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--orange);display:flex;align-items:center;justify-content:space-between;';
+      warnBanner.innerHTML = '<span>&#9888; Created before DB was ready — delete and re-add to enable logging</span>';
+      var delWarnBtn = document.createElement('button');
+      delWarnBtn.className='btn btn-secondary btn-sm';
+      delWarnBtn.textContent='Delete & Re-add';
+      delWarnBtn.onclick=(function(vv){ return function(){ if(confirm('Delete '+vv.name+' and re-add it? You will need to enter details again.')) { window.vehicleFleet=(window.vehicleFleet||[]).filter(function(x){return x.id!==vv.id;}); renderVehicleCards(); populateActiveVehicleSel(); showToast('Removed — click + Add Vehicle to re-add','ok'); } }; })(v);
+      warnBanner.appendChild(delWarnBtn);
+      card.appendChild(warnBanner);
+    }
 
     // ── Header: name + edit/delete buttons ───────────────────────────
     var hdr = document.createElement('div');
@@ -6658,24 +6678,7 @@ function openVehicleFormModal(v) {
   document.body.appendChild(overlay);
 }
 
-function saveVehicleForm(vid) {
-  var name  = (document.getElementById('vfName')||{}).value||'';
-  var year  = (document.getElementById('vfYear')||{}).value||'';
-  var plate = (document.getElementById('vfPlate')||{}).value||'';
-  var color = (document.getElementById('vfColor')||{}).value||'';
-  var notes = (document.getElementById('vfNotes')||{}).value||'';
-  if(!name.trim()) { showToast('Vehicle name required','err'); return; }
-  if(vid) {
-    var vx = (window.vehicleFleet||[]).find(function(v){ return v.id===vid; });
-    if(vx){ vx.name=name; vx.year=year; vx.plate=plate; vx.color=color; vx.notes=notes; }
-  } else {
-    if(!window.vehicleFleet) window.vehicleFleet=[];
-    window.vehicleFleet.push({id:'v'+Date.now(), name:name, year:year, plate:plate, color:color, notes:notes});
-  }
-  var m=document.getElementById('vehicleFormModal'); if(m) m.remove();
-  renderVehicleCards(); populateActiveVehicleSel();
-  showToast((vid?'Vehicle updated':'Vehicle added')+': '+name,'ok');
-}
+
 
 function deleteVehicle(vid) {
   if(!confirm('Delete this vehicle?')) return;
