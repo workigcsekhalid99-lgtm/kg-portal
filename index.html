@@ -4084,38 +4084,36 @@ function startJob() {
 }
 
 function confirmVehicle() {
-  var v   = (document.getElementById('vehicleSelect')||{}).value||'';
-  var odo = (document.getElementById('startOdoInput')||{}).value||'';
-  if(!v)  { showToast('Select a vehicle first','err'); return; }
-  if(!odo){ showToast('Enter current odometer reading','err'); return; }
+  var vSel    = document.getElementById('driverVehicleSel');
+  var odoEl   = document.getElementById('driverOdoStart');
+  var purposeEl = document.getElementById('driverMileagePurpose');
 
-  driverState.vehicle  = v;
-  driverState.odoStart = parseInt(odo)||0;
-  state.odoStart   = driverState.odoStart;
-  state.odoCurrent = driverState.odoStart;
+  var vid     = (vSel||{}).value||'';
+  var vname   = '';
+  if(vSel && vSel.selectedIndex >= 0) {
+    var opt = vSel.options[vSel.selectedIndex];
+    vname = opt ? (opt.getAttribute('data-name')||opt.textContent||vid) : vid;
+  }
+  if(!vname) vname = vid; // fallback for hard-coded list
 
-  // Remove overlay
-  var ov = document.getElementById('vehicleOverlay');
-  if(ov) ov.remove();
+  var odoStart = parseInt((odoEl||{}).value)||0;
+  var purpose  = (purposeEl||{}).value||'delivery';
 
-  // Update dash hero stats
-  var vEl = document.getElementById('dashVehicle');
-  if(vEl) vEl.textContent = v;
-  var odoEl = document.getElementById('dashOdoStart');
-  if(odoEl) odoEl.textContent = parseInt(odo).toLocaleString() + ' km';
-  var tsEl = document.querySelector('.dash-ts');
-  if(tsEl) tsEl.textContent = 'Started ' + new Date().toLocaleTimeString('en-CA',{hour:'2-digit',minute:'2-digit'});
+  if(!vid)    { showToast('Select a vehicle','err'); return; }
+  if(!odoStart){ showToast('Enter starting odometer','err'); return; }
 
-  showToast('Vehicle set: ' + v + ' — Good to go!', 'ok');
-
-  // Open Google Maps
-  var pickup  = encodeURIComponent(driverState.pickupAddress||'');
-  var dropoff = encodeURIComponent(driverState.dropoffAddress||'');
-  if(pickup && dropoff) {
-    window.open('https://www.google.com/maps/dir/'+pickup+'/'+dropoff+'/?travelmode=driving', '_blank');
+  // Store on driverJob
+  if(driverJob) {
+    driverJob._vehicleId   = vid;
+    driverJob._vehicle     = vname;
+    driverJob._odo         = odoStart;
+    driverJob._odoStart    = odoStart;
+    driverJob._purpose     = purpose;
   }
 
-  switchTab('stops');
+  var m = document.getElementById('vehicleModal'); if(m) m.remove();
+  showToast('Trip started: '+vname+' @ '+odoStart.toLocaleString()+' km','ok');
+  setTimeout(openMapPicker, 500);
 }
 
 function injectStops(pickup, dropoff, custName, quoteNum, total) {
@@ -4900,21 +4898,20 @@ function openMapPicker() {
 // ── Vehicle modal ─────────────────────────────────────────────────────
 function openVehicleModal() {
   var existing = document.getElementById('vehicleModal');
-  if(existing) { existing.style.display='flex'; return; }
-
-  var vehicles = ['Ford Transit (KG-01)','Sprinter Van (KG-02)','Box Truck (KG-03)','Cube Van (KG-04)','Pickup Truck (KG-05)'];
+  if(existing) { existing.remove(); } // always rebuild so odo auto-fills freshly
 
   var overlay = mk('div', { id:'vehicleModal' });
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
 
   var box = mk('div');
-  box.style.cssText = 'background:var(--s1);border:1px solid var(--bdr2);border-top:3px solid var(--red);border-radius:4px;padding:28px;width:400px;max-width:92vw;';
+  box.style.cssText = 'background:var(--s1);border:1px solid var(--bdr2);border-top:3px solid var(--red);border-radius:4px;padding:28px;width:440px;max-width:96vw;';
 
   var title = mk('h2');
   title.style.cssText = 'font-family:"Barlow Condensed",sans-serif;font-size:20px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:20px;';
   title.textContent = 'Select Vehicle';
   box.appendChild(title);
 
+  // ── Vehicle selector — populated from fleet ───────────────────────────
   var vLabel = mk('div');
   vLabel.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--t3);margin-bottom:6px;';
   vLabel.textContent = 'Vehicle';
@@ -4922,39 +4919,82 @@ function openVehicleModal() {
 
   var vSel = mk('select', { id:'driverVehicleSel' });
   vSel.style.cssText = 'width:100%;padding:10px;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;font-size:14px;color:var(--text);outline:none;margin-bottom:16px;';
-  vehicles.forEach(function(v){ var o=mk('option',{value:v}); o.textContent=v; vSel.appendChild(o); });
+
+  // Use fleet vehicles if available, fallback to hard-coded list
+  var fleet = window.vehicleFleet || [];
+  if(fleet.length) {
+    var defOpt = mk('option',{value:''}); defOpt.textContent='-- Select --'; vSel.appendChild(defOpt);
+    fleet.forEach(function(v){
+      var o = mk('option',{value:v.id});
+      o.textContent = v.name + (v.plate?' ('+v.plate+')':'');
+      o.setAttribute('data-odo', v.odo_current||0);
+      o.setAttribute('data-name', v.name);
+      vSel.appendChild(o);
+    });
+  } else {
+    ['Ford Transit (KG-01)','Sprinter Van (KG-02)','Box Truck (KG-03)','Cube Van (KG-04)','Pickup Truck (KG-05)']
+      .forEach(function(v){ var o=mk('option',{value:v}); o.textContent=v; vSel.appendChild(o); });
+  }
   box.appendChild(vSel);
 
+  // ── Odometer — auto-fill from last known fleet odo ────────────────────
   var oLabel = mk('div');
-  oLabel.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--t3);margin-bottom:6px;';
+  oLabel.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--t3);margin-bottom:4px;';
   oLabel.textContent = 'Starting Odometer (km)';
   box.appendChild(oLabel);
 
-  var oInput = mk('input', { id:'driverOdoInput', type:'number' });
+  var oHint = mk('div');
+  oHint.id = 'odoHint';
+  oHint.style.cssText = 'font-size:11px;color:var(--t3);margin-bottom:6px;';
+  oHint.textContent = 'Auto-filled from last recorded odometer';
+  box.appendChild(oHint);
+
+  var oInput = mk('input', { id:'driverOdoStart', type:'number' });
   oInput.placeholder = 'e.g. 64000';
-  oInput.style.cssText = 'width:100%;padding:10px;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;font-size:14px;color:var(--text);outline:none;margin-bottom:22px;';
+  oInput.style.cssText = 'width:100%;padding:10px;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;font-size:14px;color:var(--text);outline:none;margin-bottom:14px;';
   box.appendChild(oInput);
 
-  var btnRow = mk('div');
-  btnRow.style.cssText = 'display:flex;gap:10px;';
+  // Auto-fill odo when vehicle selected
+  vSel.onchange = function() {
+    var opt = vSel.options[vSel.selectedIndex];
+    var odo = opt ? parseInt(opt.getAttribute('data-odo'))||0 : 0;
+    if(odo > 0) {
+      oInput.value = odo;
+      oHint.textContent = '\u2713 Last recorded: ' + odo.toLocaleString() + ' km — confirm or adjust';
+      oHint.style.color = 'var(--green)';
+    } else {
+      oInput.value = '';
+      oHint.textContent = 'No odometer on file — enter manually';
+      oHint.style.color = 'var(--t3)';
+    }
+  };
+  // Trigger if fleet vehicles loaded
+  if(fleet.length) vSel.onchange();
 
-  var cancelBtn = mk('button');
-  cancelBtn.className = 'btn btn-secondary';
-  cancelBtn.style.flex = '1';
-  cancelBtn.textContent = 'Cancel';
-  cancelBtn.onclick = function(){ overlay.remove(); };
+  // ── Mileage purpose ───────────────────────────────────────────────────
+  var pLabel = mk('div');
+  pLabel.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--t3);margin-bottom:6px;';
+  pLabel.textContent = 'Mileage Purpose';
+  box.appendChild(pLabel);
 
-  var goBtn = mk('button');
-  goBtn.className = 'btn btn-green';
-  goBtn.style.cssText = 'flex:2;font-size:15px;';
-  goBtn.innerHTML = '&#128640; Go!';
-  goBtn.onclick = confirmVehicle;
+  var pSel = mk('select', { id:'driverMileagePurpose' });
+  pSel.style.cssText = 'width:100%;padding:10px;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;font-size:14px;color:var(--text);outline:none;margin-bottom:22px;';
+  [['delivery','Delivery Run'],['pickup','Pickup Run'],['dead_head','Dead Head (Empty)'],
+   ['return','Return to Lot'],['shop','Shop / Service'],['other','Other']]
+    .forEach(function(o){ var el=mk('option',{value:o[0]}); el.textContent=o[1]; pSel.appendChild(el); });
+  box.appendChild(pSel);
 
-  btnRow.appendChild(cancelBtn);
-  btnRow.appendChild(goBtn);
+  // ── Buttons ───────────────────────────────────────────────────────────
+  var btnRow = mk('div'); btnRow.style.cssText = 'display:flex;gap:10px;';
+  var cancelBtn = mk('button'); cancelBtn.className='btn btn-secondary'; cancelBtn.style.flex='1';
+  cancelBtn.textContent='Cancel'; cancelBtn.onclick=function(){ overlay.remove(); };
+  var goBtn = mk('button'); goBtn.className='btn btn-green'; goBtn.style.cssText='flex:2;font-size:15px;';
+  goBtn.innerHTML='&#128640; Start Trip'; goBtn.onclick=confirmVehicle;
+  btnRow.appendChild(cancelBtn); btnRow.appendChild(goBtn);
   box.appendChild(btnRow);
+
   overlay.appendChild(box);
-  overlay.onclick = function(e){ if(e.target===overlay) overlay.remove(); };
+  overlay.onclick=function(e){ if(e.target===overlay) overlay.remove(); };
   document.body.appendChild(overlay);
 }
 
@@ -5265,123 +5305,310 @@ function submitBOL() {
 // Generate invoice + POD as one combined PDF file
 
 
+
+function openEndTripModal(onConfirm) {
+  var existing = document.getElementById('endTripModal');
+  if(existing) existing.remove();
+
+  var odoStart = (driverJob && driverJob._odoStart) || 0;
+  var vname    = (driverJob && driverJob._vehicle)  || '';
+
+  var overlay = mk('div', { id:'endTripModal' });
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+
+  var box = mk('div');
+  box.style.cssText = 'background:var(--s1);border:1px solid var(--bdr2);border-top:3px solid var(--green);border-radius:4px;padding:28px;width:480px;max-width:96vw;';
+
+  // Title
+  var title = mk('h2');
+  title.style.cssText = 'font-family:"Barlow Condensed",sans-serif;font-size:20px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;';
+  title.textContent = 'Complete Delivery — Log Mileage';
+  box.appendChild(title);
+
+  var sub = mk('div');
+  sub.style.cssText = 'font-size:12px;color:var(--t2);margin-bottom:22px;';
+  sub.textContent = vname + (odoStart?' — started at '+odoStart.toLocaleString()+' km':'');
+  box.appendChild(sub);
+
+  // ── Delivery end odo ──────────────────────────────────────────────────
+  function addOdoRow(labelText, id, hint) {
+    var lbl = mk('div');
+    lbl.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--t3);margin-bottom:4px;';
+    lbl.textContent = labelText;
+    box.appendChild(lbl);
+    if(hint) {
+      var h = mk('div');
+      h.style.cssText = 'font-size:10px;color:var(--t3);margin-bottom:4px;';
+      h.textContent = hint;
+      box.appendChild(h);
+    }
+    var inp = mk('input', { id:id, type:'number' });
+    inp.placeholder = 'km reading';
+    inp.style.cssText = 'width:100%;padding:10px;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;font-size:14px;color:var(--text);outline:none;margin-bottom:14px;';
+    box.appendChild(inp);
+    return inp;
+  }
+
+  var odoDelivery = addOdoRow(
+    'Odometer at Delivery',
+    'endOdoDelivery',
+    'Reading when you completed the final drop-off'
+  );
+
+  // ── Extra legs (dead miles, return, etc) ──────────────────────────────
+  var extraHdr = mk('div');
+  extraHdr.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;border-top:1px solid var(--bdr);padding-top:14px;';
+  extraHdr.textContent = 'Additional Legs (Optional)';
+  box.appendChild(extraHdr);
+
+  var extraHint = mk('div');
+  extraHint.style.cssText = 'font-size:11px;color:var(--t2);margin-bottom:12px;';
+  extraHint.textContent = 'Track any miles driven after delivery — return to lot, second pickup, fuel stop, etc.';
+  box.appendChild(extraHint);
+
+  var legsWrap = mk('div', { id:'extraLegsWrap' });
+  legsWrap.style.cssText = 'display:flex;flex-direction:column;gap:10px;margin-bottom:12px;';
+  box.appendChild(legsWrap);
+
+  var addLegBtn = mk('button');
+  addLegBtn.style.cssText = 'background:none;border:1px dashed var(--bdr);color:var(--t3);padding:8px;font-size:12px;cursor:pointer;border-radius:2px;width:100%;margin-bottom:18px;transition:all 0.15s;';
+  addLegBtn.textContent = '+ Add Leg (Return / Dead Miles / Other)';
+  addLegBtn.onmouseover = function(){ this.style.borderColor='var(--red)'; this.style.color='var(--text)'; };
+  addLegBtn.onmouseout  = function(){ this.style.borderColor='var(--bdr)'; this.style.color='var(--t3)'; };
+  addLegBtn.onclick = function(){ addExtraLeg(legsWrap); };
+  box.appendChild(addLegBtn);
+
+  // ── Buttons ───────────────────────────────────────────────────────────
+  var btnRow = mk('div'); btnRow.style.cssText='display:flex;gap:10px;';
+  var skipBtn = mk('button'); skipBtn.className='btn btn-secondary'; skipBtn.style.flex='1';
+  skipBtn.textContent='Skip Mileage Log';
+  skipBtn.onclick=function(){ overlay.remove(); onConfirm(null); };
+  var doneBtn = mk('button'); doneBtn.className='btn btn-green'; doneBtn.style.cssText='flex:2;font-size:15px;';
+  doneBtn.innerHTML='&#10003; Save & Complete';
+  doneBtn.onclick=function(){
+    var odoEnd = parseInt((document.getElementById('endOdoDelivery')||{}).value)||0;
+    var legs = collectExtraLegs(legsWrap);
+    overlay.remove();
+    onConfirm({ odoEnd:odoEnd, legs:legs });
+  };
+  btnRow.appendChild(skipBtn); btnRow.appendChild(doneBtn);
+  box.appendChild(btnRow);
+
+  overlay.appendChild(box);
+  overlay.onclick=function(e){ if(e.target===overlay){ overlay.remove(); onConfirm(null); } };
+  document.body.appendChild(overlay);
+}
+
+function addExtraLeg(container) {
+  var legDiv = mk('div');
+  legDiv.style.cssText = 'background:var(--s2);border:1px solid var(--bdr);border-radius:2px;padding:12px;';
+  legDiv.className = 'extra-leg';
+
+  var row1 = mk('div'); row1.style.cssText='display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;align-items:end;';
+
+  // Purpose select
+  var pWrap = mk('div');
+  var pLbl = mk('div'); pLbl.style.cssText='font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--t3);margin-bottom:4px;'; pLbl.textContent='Purpose';
+  var pSel = mk('select'); pSel.className='leg-purpose';
+  pSel.style.cssText='width:100%;padding:8px;background:var(--s1);border:1px solid var(--bdr);border-radius:2px;font-size:13px;color:var(--text);outline:none;';
+  [['return_lot','Return to Lot'],['dead_head','Dead Head (Empty)'],['pickup_run','Pickup Run'],
+   ['fuel_stop','Fuel Stop'],['shop','Shop / Service'],['personal','Personal'],['other','Other']]
+    .forEach(function(o){ var el=mk('option',{value:o[0]}); el.textContent=o[1]; pSel.appendChild(el); });
+  pWrap.appendChild(pLbl); pWrap.appendChild(pSel);
+
+  // Start odo
+  var s1 = mk('div');
+  var sl = mk('div'); sl.style.cssText='font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--t3);margin-bottom:4px;'; sl.textContent='Start (km)';
+  var si = mk('input',{type:'number'}); si.className='leg-odo-start'; si.placeholder='km'; si.style.cssText='width:100%;padding:8px;background:var(--s1);border:1px solid var(--bdr);border-radius:2px;font-size:13px;color:var(--text);outline:none;';
+  s1.appendChild(sl); s1.appendChild(si);
+
+  // End odo
+  var e1 = mk('div');
+  var el2 = mk('div'); el2.style.cssText='font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--t3);margin-bottom:4px;'; el2.textContent='End (km)';
+  var ei = mk('input',{type:'number'}); ei.className='leg-odo-end'; ei.placeholder='km'; ei.style.cssText='width:100%;padding:8px;background:var(--s1);border:1px solid var(--bdr);border-radius:2px;font-size:13px;color:var(--text);outline:none;';
+  e1.appendChild(el2); e1.appendChild(ei);
+
+  // Remove button
+  var rBtn = mk('button');
+  rBtn.textContent='×'; rBtn.style.cssText='background:none;border:1px solid var(--bdr);color:var(--t3);width:32px;height:36px;border-radius:2px;cursor:pointer;font-size:18px;margin-top:14px;flex-shrink:0;';
+  rBtn.onclick=function(){ legDiv.remove(); };
+
+  row1.appendChild(pWrap); row1.appendChild(s1); row1.appendChild(e1); row1.appendChild(rBtn);
+  legDiv.appendChild(row1);
+  container.appendChild(legDiv);
+}
+
+function collectExtraLegs(container) {
+  var legs = [];
+  (container.querySelectorAll('.extra-leg')||[]).forEach(function(leg){
+    var purpose = (leg.querySelector('.leg-purpose')||{}).value||'other';
+    var start   = parseInt((leg.querySelector('.leg-odo-start')||{}).value)||0;
+    var end2    = parseInt((leg.querySelector('.leg-odo-end')||{}).value)||0;
+    var km      = Math.max(0, end2-start);
+    if(km > 0 || start > 0) legs.push({purpose:purpose, odo_start:start, odo_end:end2, km:km});
+  });
+  return legs;
+}
+
 function completeDelivery() {
   if(!driverJob) { showToast('No active job loaded','err'); return; }
   var puSigned = bolStore.pickup.signed;
   var dlSigned = bolStore.dropoff.signed;
-  var msg = 'Mark delivery as complete?\n\n';
+  var msg = 'Ready to complete delivery?\n\n';
   msg += '\u2022 Pickup BOL: '  +(puSigned?'\u2713 Signed':'\u2717 Not signed')+'\n';
   msg += '\u2022 Delivery POD: '+(dlSigned?'\u2713 Signed':'\u2717 Not signed')+'\n\n';
-  msg += 'POD will download automatically. A new invoice will be created.';
+  msg += 'Next: log final odometer reading.';
   if(!confirm(msg)) return;
   if(!sb) { showToast('Not connected','err'); return; }
 
+  // Open end-of-trip odo modal, then proceed
+  openEndTripModal(function(odoData) {
+    completeDeliveryFinal(odoData);
+  });
+}
+
+async function completeDeliveryFinal(odoData) {
   var job = driverJob;
   var now2 = new Date();
+  var ts   = now2.toISOString();
   var invNum = 'INV-'+now2.getFullYear().toString().slice(2)+
     String(now2.getMonth()+1).padStart(2,'0')+
     String(now2.getDate()).padStart(2,'0')+'-'+
     Math.floor(Math.random()*900+100);
-  var ts = now2.toISOString();
 
-  // ── Save trip record ────────────────────────────────────────────────────────
+  // Mileage summary
+  var odoStart   = job._odoStart || job._odo || 0;
+  var odoDelivery= odoData ? odoData.odoEnd : 0;
+  var delivKm    = Math.max(0, odoDelivery - odoStart);
+  var extraLegs  = odoData ? (odoData.legs||[]) : [];
+  var totalKm    = delivKm + extraLegs.reduce(function(s,l){return s+(l.km||0);},0);
+
+  // Update vehicle odo in fleet if vehicle tracked
+  if(job._vehicleId && sb && odoData) {
+    var finalOdo = 0;
+    if(extraLegs.length) {
+      var lastLeg = extraLegs[extraLegs.length-1];
+      finalOdo = lastLeg.odo_end || odoDelivery || 0;
+    } else {
+      finalOdo = odoDelivery || 0;
+    }
+    if(finalOdo > 0) {
+      sb.from('fleet_vehicles').update({odo_current:finalOdo, updated_at:ts}).eq('id',job._vehicleId).then(function(){});
+      // Update fleet cache
+      var fv = (window.vehicleFleet||[]).find(function(v){return v.id===job._vehicleId;});
+      if(fv) fv.odo_current = finalOdo;
+    }
+    // Log main delivery leg to fleet_km
+    if(delivKm > 0) {
+      var kpay = { vehicle_id:job._vehicleId, description:'Delivery — '+job.quote_num,
+        odo_start:odoStart, odo_end:odoDelivery, km_driven:delivKm,
+        trip_date:ts.split('T')[0], updated_at:ts };
+      sb.from('fleet_km').insert(kpay).then(function(){});
+      if(!window.vehicleKm) window.vehicleKm=[];
+      var vn=(window.vehicleFleet||[]).find(function(v){return v.id===job._vehicleId;});
+      window.vehicleKm.unshift(Object.assign({},kpay,{vid:job._vehicleId,vname:vn?vn.name:'',date:ts.split('T')[0],dist:delivKm}));
+    }
+    // Log extra legs
+    extraLegs.forEach(function(leg){
+      if(!leg.km) return;
+      var lp = { vehicle_id:job._vehicleId, description:leg.purpose.replace(/_/g,' '),
+        odo_start:leg.odo_start, odo_end:leg.odo_end, km_driven:leg.km,
+        trip_date:ts.split('T')[0], updated_at:ts };
+      sb.from('fleet_km').insert(lp).then(function(){});
+      if(!window.vehicleKm) window.vehicleKm=[];
+      var vn=(window.vehicleFleet||[]).find(function(v){return v.id===job._vehicleId;});
+      window.vehicleKm.unshift(Object.assign({},lp,{vid:job._vehicleId,vname:vn?vn.name:'',date:ts.split('T')[0],dist:leg.km}));
+    });
+  }
+
+  // ── Save trip record ─────────────────────────────────────────────────
   var tripRecord = {
-    quote_id:       job.id,
-    quote_num:      job.quote_num||'',
-    customer_name:  job.customer_name||'',
-    vehicle:        job._vehicle||'',
-    odo_start:      job._odo||0,
-    pickup_address: job.pickup_address||'',
-    dropoff_address:job.dropoff_address||'',
-    bol_pickup_ref:     bolStore.pickup.ref||'',
-    bol_pickup_signed:  bolStore.pickup.timestamp||null,
-    bol_pickup_receiver:bolStore.pickup.receiver||'',
-    bol_dropoff_ref:    bolStore.dropoff.ref||'',
-    bol_dropoff_signed: bolStore.dropoff.timestamp||null,
-    bol_dropoff_receiver:bolStore.dropoff.receiver||'',
-    pickup_photo_count:  (bolStore.pickup.photos||[]).length,
-    dropoff_photo_count: (bolStore.dropoff.photos||[]).length,
-    completed_at:   ts,
-    invoice_num:    invNum
+    quote_id:             job.id,
+    quote_num:            job.quote_num||'',
+    customer_name:        job.customer_name||'',
+    vehicle:              job._vehicle||'',
+    odo_start:            odoStart,
+    odo_end_delivery:     odoDelivery||0,
+    total_km:             totalKm||0,
+    pickup_address:       job.pickup_address||'',
+    dropoff_address:      job.dropoff_address||'',
+    bol_pickup_ref:       bolStore.pickup.ref||'',
+    bol_pickup_signed:    bolStore.pickup.timestamp||null,
+    bol_pickup_receiver:  bolStore.pickup.receiver||'',
+    bol_dropoff_ref:      bolStore.dropoff.ref||'',
+    bol_dropoff_signed:   bolStore.dropoff.timestamp||null,
+    bol_dropoff_receiver: bolStore.dropoff.receiver||'',
+    pickup_photo_count:   (bolStore.pickup.photos||[]).length,
+    dropoff_photo_count:  (bolStore.dropoff.photos||[]).length,
+    completed_at:         ts,
+    invoice_num:          invNum
   };
 
-  // Store trip in memory for dispatch page
   if(!window.completedTrips) window.completedTrips = [];
   window.completedTrips.unshift({
-    idx: window.completedTrips.length,
-    quote_id:      job.id,
-    quote_num:     job.quote_num||'',
-    customer_name: job.customer_name||'',
-    vehicle:       job._vehicle||'',
-    pickup_address: job.pickup_address||'',
-    dropoff_address:job.dropoff_address||'',
-    bol_pickup:    bolStore.pickup.ref||'',
-    bol_dropoff:   bolStore.dropoff.ref||'',
-    pickup_photos: (bolStore.pickup.photos||[]).slice(),
-    dropoff_photos:(bolStore.dropoff.photos||[]).slice(),
-    pickup_sig:    bolStore.pickup.sigData,
-    dropoff_sig:   bolStore.dropoff.sigData,
+    idx:0,
+    quote_id:       job.id,      quote_num:   job.quote_num||'',
+    customer_name:  job.customer_name||'',   vehicle: job._vehicle||'',
+    pickup_address: job.pickup_address||'',  dropoff_address:job.dropoff_address||'',
+    bol_pickup:     bolStore.pickup.ref||'', bol_dropoff:bolStore.dropoff.ref||'',
+    pickup_photos:  (bolStore.pickup.photos||[]).slice(),
+    dropoff_photos: (bolStore.dropoff.photos||[]).slice(),
+    pickup_sig:     bolStore.pickup.sigData,
+    dropoff_sig:    bolStore.dropoff.sigData,
     bolStore_snapshot: JSON.parse(JSON.stringify(bolStore)),
     driverJob_snapshot:{ id:job.id, quote_num:job.quote_num, customer_name:job.customer_name,
       pickup_address:job.pickup_address, dropoff_address:job.dropoff_address,
-      _vehicle:job._vehicle, _odo:job._odo, total:job.total },
-    invoice_num:   invNum,
-    completed_at:  ts
+      _vehicle:job._vehicle, _odo:odoStart, total:job.total },
+    odo_start:     odoStart, odo_end:odoDelivery, total_km:totalKm,
+    extra_legs:    extraLegs,
+    invoice_num:   invNum, completed_at:ts
   });
 
-  // Save trip to Supabase
   sb.from('completed_trips').insert(tripRecord).then(function(tr){
     if(tr && tr.error) console.warn('Trip save:', tr.error.message);
   });
 
-  // ── Save invoice record ─────────────────────────────────────────────────────
+  // ── Save invoice ─────────────────────────────────────────────────────
   var invPayload = {
-    invoice_num:     invNum,
-    quote_id:        job.id,
-    customer_id:     job.customer_id||null,
-    customer_name:   job.customer_name||'',
-    customer_email:  job.customer_email||'',
-    customer_phone:  job.customer_phone||'',
-    customer_address:job.customer_address||'',
-    pickup_address:  job.pickup_address||'',
-    dropoff_address: job.dropoff_address||'',
-    status:          'unpaid',
-    total:           job.total||0,
-    subtotal:        job.subtotal||job.total||0,
-    hst_amount:      job.hst||0,
-    distance_km:     job.distance_km||0,
-    due_date:        (function(){ var d=new Date(); d.setDate(d.getDate()+30); return d.toISOString().split('T')[0]; })(),
-    updated_at:      ts
+    invoice_num:job.quote_num ? invNum : invNum,
+    quote_id:job.id, customer_id:job.customer_id||null,
+    customer_name:job.customer_name||'', customer_email:job.customer_email||'',
+    customer_phone:job.customer_phone||'', customer_address:job.customer_address||'',
+    pickup_address:job.pickup_address||'', dropoff_address:job.dropoff_address||'',
+    status:'unpaid', total:job.total||0, subtotal:job.subtotal||job.total||0,
+    hst_amount:job.hst||0, distance_km:job.distance_km||delivKm||0,
+    due_date:(function(){var d=new Date();d.setDate(d.getDate()+30);return d.toISOString().split('T')[0];})(),
+    updated_at:ts
   };
-  sb.from('invoices').insert(invPayload).then(function(ir){
-    if(ir && ir.error) console.warn('Invoice save:', ir.error.message);
-  });
+  var ir = await sb.from('invoices').insert(invPayload);
+  if(ir && ir.error) console.warn('Invoice save:', ir.error.message);
 
-  // ── Update quote status ─────────────────────────────────────────────────────
+  // ── Update quote ─────────────────────────────────────────────────────
   sb.from('quotes').update({
     dispatch_status:'delivered', status:'converted', updated_at:ts
   }).eq('id',job.id).then(function(r){
-    if(r.error) { showToast('Error: '+r.error.message,'err'); return; }
+    if(r.error){ showToast('Error: '+r.error.message,'err'); return; }
 
-    // ── Generate POD PDF ───────────────────────────────────────────────────────
+    // Generate POD
     setTimeout(function(){
-      try { generatePODPDF(null); } catch(e) { console.error('POD error:',e); }
+      try{ generatePODPDF(null); }catch(e){ console.error('POD:',e); }
     }, 200);
 
-    // ── Reset driver state ─────────────────────────────────────────────────────
+    // Reset driver state
     driverJob = null;
     resetBolStore();
-    var card  = document.getElementById('driverJobCard');  if(card)  card.style.display='none';
-    var stops = document.getElementById('driverStopsSection'); if(stops) stops.style.display='none';
-    var sel   = document.getElementById('dispatchSel');    if(sel)   sel.value='';
+    var card=document.getElementById('driverJobCard');  if(card)  card.style.display='none';
+    var stops=document.getElementById('driverStopsSection'); if(stops) stops.style.display='none';
+    var sel=document.getElementById('dispatchSel');     if(sel)   sel.value='';
 
     renderCompletedTrips();
-
     loadQuotes().then(function(){
       populateDispatchSel();
       loadInvoices().then(function(){ updateBadges(); updateDashboard(); });
     });
-    showToast('Delivery complete! POD downloading. Invoice '+invNum+' created.','ok');
+
+    var kmMsg = totalKm > 0 ? ' · '+totalKm+' km total' : '';
+    showToast('Delivery complete! POD downloading. Invoice '+invNum+' created'+kmMsg+'.','ok');
   });
 }
 
@@ -5424,11 +5651,8 @@ function generatePODPDF(docObj, tripSnapshot) {
   // ── HEADER: logo left, "POD" title right (smaller, no overlap) ───────
   try{ doc.addImage(LOGO_DATA_URI,'PNG',PL,20,90,90,undefined,'FAST'); }catch(e){}
 
-  doc.setFont('helvetica','bold'); doc.setFontSize(36); st.apply(null,LGR);
-  doc.text('POD', PR, 55, {align:'right'});
-
-  doc.setFont('helvetica','normal'); doc.setFontSize(8); st.apply(null,MGR);
-  doc.text('PROOF OF DELIVERY', PR, 70, {align:'right'});
+  doc.setFont('helvetica','bold'); doc.setFontSize(52); st.apply(null,LGR);
+  doc.text('POD', PR, 68, {align:'right'});
 
   doc.setFont('helvetica','normal'); doc.setFontSize(8.5); st.apply(null,BLK);
   ['33 Osborn Ave','Brantford, ON, CA, N3T 6R1','(647) 709-4052','www.khairgroup.ca']
