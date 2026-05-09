@@ -2054,83 +2054,9 @@ body {
     <div class="page-hdr-left"><h1>All Quotes</h1><p>Convert to invoice or dispatch to driver</p></div>
     <div class="page-hdr-right">
       <button class="btn btn-secondary" onclick="exportQuotes()">&#8595; Export CSV</button>
-      <button class="btn btn-primary" onclick="openCreateQuotePanel()">+ New Quote</button>
+      <button class="btn btn-primary" onclick="navTo('shipping')">+ New Quote</button>
     </div>
   </div>
-
-  <!-- Standalone Quote Creator (hidden by default) -->
-  <div id="standaloneQuotePanel" style="display:none;margin-bottom:24px;">
-    <div class="panel" style="margin-bottom:0;">
-      <div class="panel-header">
-        <span class="panel-num">&#128196;</span>
-        <span class="panel-title">Create Standalone Quote</span>
-        <button class="btn btn-ghost btn-sm" onclick="closeCreateQuotePanel()" style="margin-left:auto;">&#215; Close</button>
-      </div>
-      <div class="panel-body">
-        <!-- Customer -->
-        <div class="section-label">Customer</div>
-        <div class="field-row single" style="position:relative;">
-          <div class="field">
-            <label>Customer Name</label>
-            <input type="text" id="sqCustName" placeholder="Search or type customer name..." autocomplete="off"
-              oninput="sqCustSearch(this.value)" style="width:100%;">
-            <div id="sqCustDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--s2);border:1px solid var(--bdr);border-radius:2px;z-index:200;max-height:180px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,0.3);"></div>
-          </div>
-        </div>
-        <div class="field-row">
-          <div class="field"><label>Email</label><input type="email" id="sqEmail" placeholder="customer@example.com"></div>
-          <div class="field"><label>Phone</label><input type="tel" id="sqPhone" placeholder="(416) 555-0100"></div>
-        </div>
-        <div class="field-row single">
-          <div class="field"><label>Address</label><input type="text" id="sqAddr" placeholder="123 Main St, City, ON"></div>
-        </div>
-        <!-- Route -->
-        <div class="section-label" style="margin-top:14px;">Route</div>
-        <div class="field-row">
-          <div class="field"><label>Pickup Address</label><input type="text" id="sqPickup" placeholder="From address"></div>
-          <div class="field"><label>Dropoff Address</label><input type="text" id="sqDropoff" placeholder="To address"></div>
-        </div>
-        <!-- Line Items -->
-        <div class="section-label" style="margin-top:14px;">Line Items</div>
-        <table class="data-table" style="margin-bottom:8px;">
-          <thead><tr><th>Description</th><th style="width:110px;">Price</th><th style="width:70px;">Qty</th><th style="width:100px;">Amount</th><th style="width:40px;"></th></tr></thead>
-          <tbody id="sqItemsBody"></tbody>
-        </table>
-        <button class="btn btn-ghost btn-sm" onclick="addSqItem()">+ Add Line Item</button>
-        <!-- Totals -->
-        <div style="display:flex;justify-content:flex-end;margin-top:14px;">
-          <div style="min-width:220px;">
-            <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;color:var(--t2);"><span>Subtotal</span><span id="sqSubtotal">$0.00</span></div>
-            <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;color:var(--t2);">
-              <span style="display:flex;align-items:center;gap:6px;">HST/GST (13%) <input type="checkbox" id="sqHstExempt" onchange="calcSqTotals()" style="width:13px;height:13px;accent-color:var(--red);"> <span style="font-size:11px;">Exempt</span></span>
-              <span id="sqHst">$0.00</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:14px;font-weight:700;color:var(--text);border-top:1px solid var(--bdr);margin-top:4px;"><span>Total</span><span id="sqTotal">$0.00</span></div>
-          </div>
-        </div>
-        <!-- Meta -->
-        <div class="field-row" style="margin-top:14px;">
-          <div class="field"><label>Valid Until</label><input type="date" id="sqValidTill"></div>
-          <div class="field"><label>Status</label>
-            <select id="sqStatus">
-              <option value="draft">Draft</option>
-              <option value="sent">Sent</option>
-              <option value="accepted">Accepted</option>
-            </select>
-          </div>
-        </div>
-        <div class="field-row single">
-          <div class="field"><label>Notes</label><textarea id="sqNotes" placeholder="Internal notes, special instructions..." style="height:60px;"></textarea></div>
-        </div>
-        <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;">
-          <button class="btn btn-primary" onclick="saveSqQuote(false)">&#10003; Save Quote</button>
-          <button class="btn btn-secondary" onclick="saveSqQuote(true)">&#8659; Save &amp; Download PDF</button>
-          <button class="btn btn-ghost" onclick="closeCreateQuotePanel()">Cancel</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <div class="table-wrap">
     <div class="table-toolbar">
       <input class="search-input" placeholder="Search quotes..." oninput="filterQuotes(this.value)" style="width:200px;">
@@ -2189,9 +2115,6 @@ body {
         <div class="field-row">
           <div class="field"><label>Email</label><input type="email" id="siEmail" placeholder="customer@example.com"></div>
           <div class="field"><label>Phone</label><input type="tel" id="siPhone" placeholder="(416) 555-0100"></div>
-        </div>
-        <div class="field-row single">
-          <div class="field"><label>Address</label><input type="text" id="siAddr" placeholder="123 Main St, City, ON"></div>
         </div>
         <div class="field-row">
           <div class="field"><label>Service / Description</label>
@@ -3435,7 +3358,7 @@ function generatePDF() {
     'A 50% deposit is required to confirm and schedule the delivery.',
     'The remaining balance is due upon successful delivery.',
     'Fuel surcharges are estimated and may vary slightly at time of delivery.',
-    'Khair Group is not liable for delays caused by weather, road closures, or factors outside our control.',
+    'Khair Group is not liable for delays caused by weather, road closures, or conditions beyond our control.',
     'Any wait time exceeding 30 minutes at pickup or dropoff may incur an additional hourly charge.',
     'The client is responsible for ensuring safe and accessible entry at both locations.',
     'Fragile or high-value items must be declared at time of booking.',
@@ -3459,14 +3382,7 @@ function generatePDF() {
 }
 function generateInvoice() {
   var { jsPDF } = window.jspdf;
-  var _si = window._siTotals;
-  var q = _si ? {
-    subtotal: _si.sub, discAmt: 0, hstAmt: _si.hst, hstExempt: _si.exempt,
-    total: _si.total, km: 0, base: 0, distCost: 0, fuelCostTotal: 0,
-    labourCost: 0, surchargeItems: [],
-    items: _si.items
-  } : calcQuote();
-  window._siTotals = null;
+  var q          = calcQuote();
   var today      = new Date();
   var dateFmt = function(d){ return d.toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'}); };
 
@@ -3567,29 +3483,21 @@ function generateInvoice() {
 
   hdrs.forEach((h,i)=>{cell(cX[i],TT,cW[i],HH,LGR);ctxt(h,cX[i],cW[i],TT,HH,alns[i],true,8);});
 
-  var items;
-  if(_si && _si.items && _si.items.length) {
-    items = _si.items.map(function(it){
-      return {isRoute:false,desc:it.desc||it.description||'',fromLines:[],toLines:[],
-        price:fmt(it.price||it.amount||0),qty:String(it.qty||it.quantity||1),
-        amount:fmt(it.amount||((it.price||0)*(it.qty||1))),height:RH};
-    });
-  } else {
-    var addrA=g('addrA').value||'Location A';
-    var addrB=g('addrB').value||'Location B';
-    var delivAmt=q.base+q.distCost+q.fuelCostTotal+q.labourCost;
-    var descColW=cX[1]-cX[0]-8;
-    doc.setFontSize(7.5);
-    var fromW=doc.splitTextToSize('From: '+addrA,descColW);
-    var toW=doc.splitTextToSize('To:   '+addrB,descColW);
-    var routeRH=RH+(fromW.length+toW.length)*9+4;
-    items=[
-      {isRoute:true,desc:'Pickup & Delivery ('+(q.km||0).toFixed(0)+' km)',
-       fromLines:fromW,toLines:toW,price:fmt(delivAmt),qty:'1',amount:fmt(delivAmt),height:routeRH},
-      ...q.surchargeItems.map(([l,a])=>({isRoute:false,desc:l+' Surcharge',fromLines:[],toLines:[],
-       price:fmt(a),qty:'1',amount:fmt(a),height:RH}))
-    ];
-  }
+  var addrA=g('addrA').value||'Location A';
+  var addrB=g('addrB').value||'Location B';
+  var delivAmt=q.base+q.distCost+q.fuelCostTotal+q.labourCost;
+  var descColW=cX[1]-cX[0]-8;
+  doc.setFontSize(7.5);
+  var fromW=doc.splitTextToSize('From: '+addrA,descColW);
+  var toW=doc.splitTextToSize('To:   '+addrB,descColW);
+  var routeRH=RH+(fromW.length+toW.length)*9+4;
+
+  var items=[
+    {isRoute:true,desc:'Pickup & Delivery ('+q.km.toFixed(0)+' km)',
+     fromLines:fromW,toLines:toW,price:fmt(delivAmt),qty:'1',amount:fmt(delivAmt),height:routeRH},
+    ...q.surchargeItems.map(([l,a])=>({isRoute:false,desc:l+' Surcharge',fromLines:[],toLines:[],
+     price:fmt(a),qty:'1',amount:fmt(a),height:RH}))
+  ];
 
   var rowY=TT+HH,drawn=0;
   for(var r=0;r<NR;r++){
@@ -3693,7 +3601,7 @@ function generateInvoice() {
     'E-Transfer ID: '+payRef,
     isPaid?'This document serves as an official receipt of payment.':
            'Full payment may be required prior to pickup for certain deliveries.',
-    'Khair Group is not liable for delays caused by weather, road closures, or factors outside our control.',
+    'Khair Group is not responsible for delays caused by weather, road closures, or conditions beyond our control.',
     'Disputes must be raised within 5 business days of delivery.',
     'All amounts are in Canadian Dollars (CAD) and include applicable taxes as shown.'];
   invTerms.forEach(t=>{
@@ -3939,252 +3847,7 @@ async function dispatchQuote(id){await sb.from('quotes').update({status:'dispatc
 async function deleteQuote(id){if(!confirm('Delete?'))return;await sb.from('quotes').delete().eq('id',id);showToast('Deleted','info');await loadQuotes();updateBadges();}
 function exportQuotes(){var rows=[['Quote #','Customer','Total','Status','Valid Till','Pickup','Dropoff']];DB.quotes.forEach(function(q){rows.push([q.quote_num,q.customer_name,q.total,q.status,q.valid_till,q.pickup_address,q.dropoff_address]);});dlCsv(rows,'KG_Quotes.csv');}
 
-// ── Standalone Quote Panel ────────────────────────────────────────────
-function openCreateQuotePanel() {
-  var p = document.getElementById('standaloneQuotePanel');
-  if(!p) return;
-  p.style.display = 'block';
-  // Set default valid-till to 30 days out
-  var d = new Date(); d.setDate(d.getDate()+30);
-  var el = document.getElementById('sqValidTill'); if(el) el.value = d.toISOString().split('T')[0];
-  // Seed items with one blank row
-  var tbody = document.getElementById('sqItemsBody');
-  if(tbody && !tbody.children.length) addSqItem();
-  setTimeout(function(){ var n=document.getElementById('sqCustName'); if(n) n.focus(); }, 100);
-}
-function closeCreateQuotePanel() {
-  var p = document.getElementById('standaloneQuotePanel');
-  if(p) p.style.display = 'none';
-  // Reset fields
-  ['sqCustName','sqEmail','sqPhone','sqAddr','sqPickup','sqDropoff','sqNotes'].forEach(function(id){
-    var el=document.getElementById(id); if(el) el.value='';
-  });
-  var tbody=document.getElementById('sqItemsBody'); if(tbody) tbody.innerHTML='';
-  calcSqTotals();
-}
-function sqCustSearch(val) {
-  var dd = document.getElementById('sqCustDropdown'); if(!dd) return;
-  if(!val.trim()){ dd.style.display='none'; return; }
-  var matches = DB.customers.filter(function(c){ return c.name.toLowerCase().includes(val.toLowerCase()); }).slice(0,8);
-  if(!matches.length){ dd.style.display='none'; return; }
-  dd.innerHTML='';
-  matches.forEach(function(c){
-    var item=document.createElement('div');
-    item.style.cssText='padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--bdr);color:var(--text);';
-    item.textContent=c.name+(c.company?' — '+c.company:'');
-    item.onmouseenter=function(){this.style.background='var(--s3)';};
-    item.onmouseleave=function(){this.style.background='';};
-    item.onclick=function(){
-      var n=document.getElementById('sqCustName'); if(n) n.value=c.name;
-      var em=document.getElementById('sqEmail');   if(em) em.value=c.email||'';
-      var ph=document.getElementById('sqPhone');   if(ph) ph.value=c.phone||'';
-      var ad=document.getElementById('sqAddr');    if(ad) ad.value=c.address||'';
-      dd.style.display='none';
-    };
-    dd.appendChild(item);
-  });
-  dd.style.display='block';
-}
-function addSqItem() {
-  var tbody = document.getElementById('sqItemsBody'); if(!tbody) return;
-  var tr = document.createElement('tr');
-  var uid = Date.now()+Math.random();
-  tr.innerHTML =
-    '<td><input type="text" placeholder="Description" style="width:100%;background:transparent;border:none;border-bottom:1px solid var(--bdr);color:var(--text);padding:4px;font-size:13px;outline:none;" oninput="calcSqTotals()"></td>'+
-    '<td><input type="number" placeholder="0.00" step="0.01" min="0" style="width:100%;background:transparent;border:none;border-bottom:1px solid var(--bdr);color:var(--text);padding:4px;font-size:13px;outline:none;text-align:right;" oninput="calcSqTotals()"></td>'+
-    '<td><input type="number" placeholder="1" step="1" min="1" value="1" style="width:100%;background:transparent;border:none;border-bottom:1px solid var(--bdr);color:var(--text);padding:4px;font-size:13px;outline:none;text-align:center;" oninput="calcSqTotals()"></td>'+
-    '<td style="text-align:right;font-size:13px;padding:4px;color:var(--t2);" class="sq-amt">$0.00</td>'+
-    '<td style="text-align:center;"><button onclick="this.closest(\'tr\').remove();calcSqTotals();" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:16px;line-height:1;">&#215;</button></td>';
-  tbody.appendChild(tr);
-}
-function getSqLineItems() {
-  var items=[];
-  var rows=document.querySelectorAll('#sqItemsBody tr');
-  rows.forEach(function(tr){
-    var inputs=tr.querySelectorAll('input');
-    var desc=(inputs[0]&&inputs[0].value)||'';
-    var price=parseFloat((inputs[1]&&inputs[1].value)||0)||0;
-    var qty=parseInt((inputs[2]&&inputs[2].value)||1)||1;
-    var amt=parseFloat((price*qty).toFixed(2));
-    var amtCell=tr.querySelector('.sq-amt'); if(amtCell) amtCell.textContent='$'+amt.toFixed(2);
-    if(desc||price) items.push({desc:desc,price:price,qty:qty,amount:amt});
-  });
-  return items;
-}
-function calcSqTotals() {
-  var items=getSqLineItems();
-  var sub=items.reduce(function(s,i){return s+i.amount;},0);
-  var exempt=document.getElementById('sqHstExempt')&&document.getElementById('sqHstExempt').checked;
-  var hst=exempt?0:sub*0.13;
-  var total=sub+hst;
-  var elSub=document.getElementById('sqSubtotal'); if(elSub) elSub.textContent='$'+sub.toFixed(2);
-  var elHst=document.getElementById('sqHst');      if(elHst) elHst.textContent=(exempt?'Exempt ':'')+'$'+hst.toFixed(2);
-  var elTot=document.getElementById('sqTotal');    if(elTot) elTot.textContent='$'+total.toFixed(2);
-  return {items:items,sub:sub,hst:hst,total:total,exempt:exempt};
-}
-function saveSqQuote(downloadPdf) {
-  var name=(document.getElementById('sqCustName')||{}).value||''; name=name.trim();
-  if(!name){showToast('Customer name required','err');return;}
-  var totals=calcSqTotals();
-  if(!totals.items.length){showToast('Add at least one line item','err');return;}
-  var d=new Date();
-  var ref='QT-'+d.getFullYear().toString().slice(2)+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0')+'-'+Math.floor(Math.random()*900+100);
-  var email=(document.getElementById('sqEmail')||{}).value||'';
-  var phone=(document.getElementById('sqPhone')||{}).value||'';
-  var addr=(document.getElementById('sqAddr')||{}).value||'';
-  var pickup=(document.getElementById('sqPickup')||{}).value||'';
-  var dropoff=(document.getElementById('sqDropoff')||{}).value||'';
-  var validTill=(document.getElementById('sqValidTill')||{}).value||null;
-  var status=(document.getElementById('sqStatus')||{}).value||'draft';
-  var notes=(document.getElementById('sqNotes')||{}).value||'';
-  var doSave=function(custId){
-    var payload={
-      quote_num:ref, customer_id:custId||null, customer_name:name,
-      customer_email:email, customer_phone:phone, customer_address:addr,
-      service_type:'delivery', status:status,
-      items:JSON.stringify(totals.items),
-      subtotal:totals.sub, discount:0, hst_amount:totals.hst,
-      hst_exempt:totals.exempt, total:totals.total,
-      valid_till:validTill, notes:notes,
-      pickup_address:pickup, dropoff_address:dropoff,
-      distance_km:0, updated_at:new Date().toISOString()
-    };
-    if(!sb){showToast('Not connected','err');return;}
-    sb.from('quotes').insert(payload).then(function(r){
-      if(r.error){showToast('Error: '+r.error.message,'err');return;}
-      showToast('Quote '+ref+' saved ✓','ok');
-      loadQuotes().then(function(){updateBadges();updateDashboard();});
-      if(downloadPdf) generateSqPdf(ref,name,email,phone,addr,pickup,dropoff,totals,validTill,notes);
-      closeCreateQuotePanel();
-    });
-  };
-  var existing=DB.customers.find(function(c){return c.name.toLowerCase()===name.toLowerCase();});
-  if(existing){doSave(existing.id);return;}
-  if(sb){sb.from('customers').insert({name:name,email:email,phone:phone,address:addr}).select().single().then(function(r){if(r.data)DB.customers.push(r.data);doSave(r.data?r.data.id:null);});}
-  else doSave(null);
-}
-function generateSqPdf(ref,custName,custEmail,custPhone,custAddr,pickup,dropoff,totals,validTill,notes){
-  if(typeof jsPDF==='undefined'&&typeof window.jspdf==='undefined'){showToast('PDF library not loaded','err');return;}
-  var jsPDFCls=typeof jsPDF!=='undefined'?jsPDF:(window.jspdf&&window.jspdf.jsPDF);
-  var doc=new jsPDFCls({unit:'pt',format:'letter',orientation:'portrait'});
-  var PL=62,PR=590,PB=748;
-  var sf=function(){doc.setFillColor.apply(doc,arguments);};
-  var ss=function(){doc.setDrawColor.apply(doc,arguments);};
-  var st=function(){doc.setTextColor.apply(doc,arguments);};
-  var RED=[204,31,31],BLK=[15,15,15],MGR=[120,120,120],DGR=[50,50,50],
-      LGR=[220,220,220],WHT=[255,255,255],VLG=[245,245,245],GOLD=[230,168,23];
-  var fmt=function(n){return'$'+(+n||0).toFixed(2);};
-  var today=new Date();
-  var dateFmt=function(d){return d.toLocaleDateString('en-CA',{year:'numeric',month:'long',day:'numeric'});};
-  var validDate=validTill?new Date(validTill+'T12:00:00'):new Date(today.getTime()+30*86400000);
-  // Header bar
-  sf(...RED);doc.rect(0,0,612,54,'F');
-  doc.setFont('helvetica','bold');doc.setFontSize(22);st(...WHT);
-  doc.text('QUOTE',PL,35);
-  doc.setFont('helvetica','normal');doc.setFontSize(9);
-  doc.text('Khair Group  ·  www.khairgroup.ca',PR,22,{align:'right'});
-  doc.text('(647) 709-4052  ·  quotes@khairgroup.ca',PR,35,{align:'right'});
-  // Logo area
-  sf(...VLG);doc.rect(PL,62,200,66,'F');
-  doc.setFont('helvetica','bold');doc.setFontSize(16);st(...RED);doc.text('KHAIR GROUP',PL+8,90);
-  doc.setFont('helvetica','normal');doc.setFontSize(8.5);st(...DGR);
-  ['33 Osborn Ave','Brantford, ON, CA, N3T 6R1','(647) 709-4052','www.khairgroup.ca'].forEach(function(line,i){doc.text(line,PL+8,102+i*11);});
-  // Meta box
-  var mx=326,my=68,rmh=15,pad=6;
-  var metaRows=[['QUOTE #:',ref],['DATE:',dateFmt(today)],['VALID TILL:',dateFmt(validDate)]];
-  var bh=metaRows.length*rmh+pad*2;
-  sf(...VLG);doc.rect(mx,my,PR-mx,bh,'F');
-  ss(...LGR);doc.setLineWidth(0.5);
-  doc.line(mx,my,PR,my);doc.line(PR,my,PR,my+bh);doc.line(PR,my+bh,mx,my+bh);doc.line(mx,my+bh,mx,my);
-  sf(...GOLD);doc.rect(mx,my,3,bh,'F');
-  metaRows.forEach(function(row,i){
-    var ry=my+pad+i*rmh+rmh*0.65;
-    doc.setFont('helvetica','bold');doc.setFontSize(8);st(...BLK);doc.text(row[0],mx+10,ry);
-    doc.setFont('helvetica','normal');doc.text(row[1],PR-6,ry,{align:'right'});
-  });
-  // Client block
-  var cx=326,clY=my+bh+16;
-  var contact=custPhone||custEmail||'\u2014';
-  var clientRows=[['Quote For',custName]];
-  if(custAddr) clientRows.push(['Address',custAddr]);
-  clientRows.push(['Contact',contact]);
-  clientRows.forEach(function(row){
-    doc.setFont('helvetica','bold');doc.setFontSize(8.5);st(...BLK);doc.text(row[0],cx,clY);
-    doc.setFont('helvetica','normal');
-    var lines=doc.splitTextToSize(row[1],PR-cx-6);
-    lines.forEach(function(ln,i){doc.text(ln,cx+66,clY+i*13);});
-    clY+=14*Math.max(1,lines.length);
-  });
-  // Table
-  var TT=Math.max(clY+14,238);
-  var cX=[PL,330,424,492,PR],RH=20,HH=22,NR=10;
-  var cW=[cX[1]-cX[0],cX[2]-cX[1],cX[3]-cX[2],cX[4]-cX[3]];
-  var cell=function(x,y,w,h,fill){
-    if(fill){sf(...fill);doc.rect(x,y,w,h,'F');}
-    ss(...LGR);doc.setLineWidth(0.4);
-    doc.line(x,y,x+w,y);doc.line(x+w,y,x+w,y+h);doc.line(x+w,y+h,x,y+h);doc.line(x,y+h,x,y);
-  };
-  ['DESCRIPTION','PRICE','QTY','AMOUNT'].forEach(function(h,i){
-    cell(cX[i],TT,cW[i],HH,LGR);
-    doc.setFont('helvetica','bold');doc.setFontSize(8);st(...BLK);
-    var tx=i===0?cX[i]+4:i===3?cX[i]+cW[i]-4:cX[i]+cW[i]/2;
-    var aln=i===0?'left':i===3?'right':'center';
-    doc.text(h,tx,TT+HH*0.65,{align:aln});
-  });
-  if(pickup||dropoff){
-    // Add route row
-    totals.items=[{desc:'Service'+(pickup?' from '+pickup.split(',')[0]:'')+(dropoff?' to '+dropoff.split(',')[0]:''),
-      price:totals.sub,qty:1,amount:totals.sub}].concat(totals.items.length>1?totals.items.slice(1):[]);
-  }
-  var rowY=TT+HH,drawn=0;
-  for(var r=0;r<NR;r++){
-    var item=totals.items[r];
-    cell(cX[0],rowY,cW[0],RH);cell(cX[1],rowY,cW[1],RH);cell(cX[2],rowY,cW[2],RH);cell(cX[3],rowY,cW[3],RH);
-    if(item){
-      doc.setFont('helvetica','normal');doc.setFontSize(8.5);st(...BLK);
-      doc.text(String(item.desc||''),cX[0]+4,rowY+RH*0.65);
-      doc.text(fmt(item.price||0),cX[1]+cW[1]/2,rowY+RH*0.65,{align:'center'});
-      doc.text(String(item.qty||1),cX[2]+cW[2]/2,rowY+RH*0.65,{align:'center'});
-      doc.text(fmt(item.amount||0),cX[3]+cW[3]-4,rowY+RH*0.65,{align:'right'});
-    }
-    rowY+=RH;drawn++;
-  }
-  // Totals
-  var TB=rowY;
-  var hstPct=totals.exempt?0:13;
-  [['SUBTOTAL',fmt(totals.sub),false],['HST/GST ('+hstPct+'%)',fmt(totals.hst),false],['TOTAL',fmt(totals.total),true]].forEach(function(row,i){
-    var yt=TB+i*RH;var tc=row[2]?WHT:BLK;
-    cell(cX[2],yt,cW[2],RH,row[2]?RED:LGR);cell(cX[3],yt,cW[3],RH,row[2]?RED:null);
-    doc.setFont('helvetica','bold');doc.setFontSize(8);st(...tc);
-    doc.text(row[0],cX[2]+cW[2]/2,yt+RH*0.65,{align:'center'});
-    doc.setFont('helvetica',row[2]?'bold':'normal');doc.setFontSize(8.5);
-    doc.text(row[1],cX[3]+cW[3]-4,yt+RH*0.65,{align:'right'});
-  });
-  // Notes + Terms
-  var infoY=TB+3*RH+20;
-  if(notes){
-    doc.setFont('helvetica','bold');doc.setFontSize(9);st(...BLK);doc.text('NOTES',PL,infoY);infoY+=13;
-    doc.setFont('helvetica','normal');doc.setFontSize(8);st(...DGR);
-    doc.splitTextToSize(notes,cX[2]-PL-8).forEach(function(ln){if(infoY<PB){doc.text(ln,PL,infoY);infoY+=11;}});
-    infoY+=8;
-  }
-  doc.setFont('helvetica','bold');doc.setFontSize(9);st(...BLK);doc.text('TERMS & CONDITIONS',PL,infoY);infoY+=13;
-  doc.setFont('helvetica','normal');doc.setFontSize(7.5);st(...DGR);
-  ['This quote is valid until '+dateFmt(validDate)+'. Prices subject to change after expiry.',
-   'All payments via e-transfer, bank transfer, or credit card.',
-   'Khair Group is not liable for delays caused by weather, road closures, or factors outside our control.',
-   'All amounts are in Canadian Dollars (CAD).'].forEach(function(t){
-    doc.splitTextToSize('\u2022 '+t,cX[2]-PL-8).forEach(function(ln){if(infoY<PB){doc.text(ln,PL,infoY);infoY+=10;}});
-    infoY+=1;
-  });
-  infoY+=6;
-  doc.setFont('helvetica','bolditalic');doc.setFontSize(9.5);st(...RED);
-  doc.text('Thank you for considering Khair Group \u2014 we look forward to serving you!',306,infoY,{align:'center'});
-  ss(...LGR);doc.setLineWidth(0.5);doc.line(PL,758,PR,758);
-  doc.setFont('helvetica','normal');doc.setFontSize(7);st(...MGR);
-  doc.text('Khair Group  \u00b7  33 Osborn Ave, Brantford, ON  \u00b7  (647) 709-4052  \u00b7  www.khairgroup.ca',306,770,{align:'center'});
-  doc.save('KG_Quote_'+ref+'.pdf');
-}
+function populateDispatchSel() {
   var sel = document.getElementById('dispatchSel');
   if(!sel) return;
   // Show quotes that are accepted OR dispatched (ready for driver)
@@ -4657,7 +4320,7 @@ function loadDriverJob(quoteId) {
       sb.from('quotes').update({status:'dispatched',dispatch_status:'active',updated_at:new Date().toISOString()}).eq('id',quoteId).then(function(){loadQuotes().then(function(){populateDispatchSel();});});
     }
     showToast('Job loaded: ' + driverState.customerName, 'ok');
-    switchTab('dash');
+    navTo('driver');
   };
 
   // Try local cache first, fallback to DB
@@ -5063,7 +4726,6 @@ function onSiCustSearch(val) {
       var n=document.getElementById('siCustName'); if(n) n.value=c.name;
       var em=document.getElementById('siEmail');  if(em) em.value=c.email||'';
       var ph=document.getElementById('siPhone');  if(ph) ph.value=c.phone||'';
-      var ad=document.getElementById('siAddr');   if(ad) ad.value=c.address||'';
       var to=document.getElementById('siEmailTo'); if(to) to.value=c.email||'';
       drop.classList.remove('open');
       updateSiEmailBody();
@@ -5159,19 +4821,17 @@ function saveSiInvoice(generatePdf) {
 
   var email = (document.getElementById('siEmail')||{}).value||'';
   var phone = (document.getElementById('siPhone')||{}).value||'';
-  var addr  = (document.getElementById('siAddr')||{}).value||'';
   var dueDate = (document.getElementById('siDueDate')||{}).value||null;
   var notes   = (document.getElementById('siNotes')||{}).value||'';
   var service = (document.getElementById('siService')||{}).value||'other';
 
   var doSave = function(custId) {
     var payload = {
-      invoice_num:      invNum,
-      customer_id:      custId || null,
-      customer_name:    name,
-      customer_email:   email,
-      customer_phone:   phone,
-      customer_address: addr,
+      invoice_num:    invNum,
+      customer_id:    custId || null,
+      customer_name:  name,
+      customer_email: email,
+      customer_phone: phone,
       service_type:   service,
       status:         'unpaid',
       items:          JSON.stringify(totals.items),
@@ -5201,11 +4861,9 @@ function saveSiInvoice(generatePdf) {
         setTimeout(function(){
           var setV=function(id,val){var el=document.getElementById(id);if(el)el.value=val||'';};
           setV('custName',name); setV('custEmail',email); setV('custPhone',phone);
-          setV('custAddr',(document.getElementById('siAddr')||{}).value||'');
           setV('invoiceNum',invNum); setV('invoiceDueDate',dueDate||'');
           setV('invoiceTermsNote','Payment due on delivery. Late payments subject to 2% fee per week.');
           window._invoiceStatus='unpaid';
-          window._siTotals = totals;
           generateInvoice();
         }, 400);
       }
@@ -7088,36 +6746,6 @@ function openVehicleFormModal(v) {
 
 
 
-function deleteVehicle(vid) {
-  if(!confirm('Delete this vehicle?')) return;
-  window.vehicleFleet = (window.vehicleFleet||[]).filter(function(v){ return v.id!==vid; });
-  renderVehicleCards(); populateActiveVehicleSel();
-  showToast('Vehicle removed','ok');
-}
-
-// ── Log fuel entry ────────────────────────────────────────────────────
-function logVehicleFuel() {
-  var vid     = (document.getElementById('activeVehicleSel')||{}).value||'';
-  var station = ((document.getElementById('vFuelStation')||{}).value||'').trim();
-  var litres  = parseFloat((document.getElementById('vFuelLitres')||{}).value)||0;
-  var ppl     = parseFloat((document.getElementById('vFuelPPL')||{}).value)||0;
-  var total   = parseFloat((document.getElementById('vFuelTotal')||{}).value)||(litres*ppl);
-  var type    = ((document.getElementById('vFuelType')||{}).value)||'Diesel';
-  var odo     = parseInt((document.getElementById('vFuelOdo')||{}).value)||0;
-  if(!vid)    { showToast('Select a vehicle first','err'); return; }
-  if(!litres) { showToast('Enter litres','err'); return; }
-  var v = (window.vehicleFleet||[]).find(function(x){ return x.id===vid; });
-  if(!window.vehicleFuel) window.vehicleFuel=[];
-  window.vehicleFuel.push({id:'f'+Date.now(), vid:vid, vname:v?v.name:'',
-    station:station, litres:litres, ppl:ppl.toFixed(3), cost:(+total).toFixed(2),
-    type:type, odo:odo, date:new Date().toLocaleDateString('en-CA'), time:new Date().toLocaleString()});
-  ['vFuelStation','vFuelLitres','vFuelPPL','vFuelTotal','vFuelOdo'].forEach(function(id){
-    var el=document.getElementById(id); if(el) el.value='';
-  });
-  renderVehicleLogs(); renderVehicleCards();
-  showToast('Fuel logged: '+litres+'L','ok');
-}
-
 // ── Log maintenance ───────────────────────────────────────────────────
 function previewMaintReceipt(input) {
   var file = input.files[0];
@@ -7127,51 +6755,6 @@ function previewMaintReceipt(input) {
   var reader = new FileReader();
   reader.onload = function(e){ vMaintReceiptData = e.target.result; };
   reader.readAsDataURL(file);
-}
-
-function logVehicleMaintenance() {
-  var vid  = (document.getElementById('activeVehicleSel')||{}).value||'';
-  var desc = ((document.getElementById('vMaintDesc')||{}).value||'').trim();
-  var cost = parseFloat((document.getElementById('vMaintCost')||{}).value)||0;
-  var shop = ((document.getElementById('vMaintShop')||{}).value||'').trim();
-  var odo  = parseInt((document.getElementById('vMaintOdo')||{}).value)||0;
-  var date = (document.getElementById('vMaintDate')||{}).value || new Date().toISOString().split('T')[0];
-  if(!vid)  { showToast('Select a vehicle','err'); return; }
-  if(!desc) { showToast('Enter description','err'); return; }
-  var v = (window.vehicleFleet||[]).find(function(x){ return x.id===vid; });
-  if(!window.vehicleMaint) window.vehicleMaint=[];
-  window.vehicleMaint.push({id:'m'+Date.now(), vid:vid, vname:v?v.name:'',
-    desc:desc, cost:(+cost).toFixed(2), shop:shop, odo:odo, date:date,
-    receipt:vMaintReceiptData||null});
-  ['vMaintDesc','vMaintCost','vMaintShop','vMaintOdo','vMaintDate'].forEach(function(id){
-    var el=document.getElementById(id); if(el) el.value='';
-  });
-  vMaintReceiptData = null;
-  var rn=document.getElementById('vMaintReceiptName'); if(rn) rn.textContent='';
-  var ri=document.getElementById('vMaintReceipt'); if(ri) ri.value='';
-  renderVehicleLogs(); renderVehicleCards();
-  showToast('Maintenance logged: '+desc,'ok');
-}
-
-// ── Log km trip ───────────────────────────────────────────────────────
-function logVehicleKm() {
-  var vid   = (document.getElementById('activeVehicleSel')||{}).value||'';
-  var desc  = ((document.getElementById('vKmDesc')||{}).value||'').trim();
-  var start = parseInt((document.getElementById('vKmStart')||{}).value)||0;
-  var end2  = parseInt((document.getElementById('vKmEnd')||{}).value)||0;
-  var date  = (document.getElementById('vKmDate')||{}).value || new Date().toISOString().split('T')[0];
-  if(!vid)  { showToast('Select a vehicle','err'); return; }
-  if(!end2) { showToast('Enter end odometer','err'); return; }
-  var dist = Math.max(0, end2-start);
-  var v = (window.vehicleFleet||[]).find(function(x){ return x.id===vid; });
-  if(!window.vehicleKm) window.vehicleKm=[];
-  window.vehicleKm.push({id:'k'+Date.now(), vid:vid, vname:v?v.name:'',
-    desc:desc, startOdo:start, endOdo:end2, distance:dist, date:date});
-  ['vKmDesc','vKmStart','vKmEnd','vKmDate'].forEach(function(id){
-    var el=document.getElementById(id); if(el) el.value='';
-  });
-  renderVehicleLogs(); renderVehicleCards();
-  showToast('KM logged: '+dist+' km','ok');
 }
 
 // ── Render all vehicle logs ───────────────────────────────────────────
